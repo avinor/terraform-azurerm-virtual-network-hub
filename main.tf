@@ -6,7 +6,11 @@ terraform {
 data "azurerm_client_config" "current" {}
 
 locals {
-  ddos_vnet_list = var.create_ddos_plan ? [true] : []
+  default_nsg_rule = {
+    direction = "Inbound"
+    access = "Allow"
+    protocol = "Tcp"
+  }
 }
 
 #
@@ -25,7 +29,7 @@ resource "azurerm_resource_group" "vnet" {
 #
 
 resource "azurerm_network_ddos_protection_plan" "vnet" {
-  count               = length(local.ddos_vnet_list)
+  count               = var.create_ddos_plan ? 1 : 0
   name                = "${var.name}-protection-plan"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
@@ -44,7 +48,7 @@ resource "azurerm_virtual_network" "vnet" {
   address_space       = [var.address_space]
 
   dynamic "ddos_protection_plan" {
-    for_each = local.ddos_vnet_list
+    for_each = var.create_ddos_plan ? [true] : []
     iterator = ddos
     content {
       id     = azurerm_ddos_protection_plan.vnet.id
@@ -86,6 +90,10 @@ resource "azurerm_subnet" "gateway" {
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefix       = cidrsubnet(var.address_space, 2, 1)
 
+  service_endpoints = [
+    "Microsoft.Storage",
+  ]
+
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released
     ignore_changes = [
@@ -96,7 +104,7 @@ resource "azurerm_subnet" "gateway" {
 }
 
 resource "azurerm_subnet" "mgmt" {
-  name                 = "mgmt"
+  name                 = "Management"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefix       = cidrsubnet(var.address_space, 2, 2)
@@ -115,7 +123,7 @@ resource "azurerm_subnet" "mgmt" {
 }
 
 resource "azurerm_subnet" "appgw" {
-  name                 = "appgw"
+  name                 = "ApplicationGateway"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefix       = cidrsubnet(var.address_space, 2, 3)
@@ -137,21 +145,13 @@ resource "azurerm_subnet" "appgw" {
 # Storage account for flow logs
 #
 
-resource "random_string" "unique" {
-  length  = 6
-  special = false
-  upper   = false
-}
+module "storage" {
+  source = "avinor/storage-account/azurerm"
+  version = "1.0.0"
 
-resource "azurerm_storage_account" "network" {
-  name                = format("%s%ssa", var.name, random_string.unique.result)
+  name = var.name
   resource_group_name = azurerm_resource_group.vnet.name
-
-  location                  = azurerm_resource_group.vnet.location
-  account_kind              = "StorageV2"
-  account_tier              = "Standard"
-  account_replication_type  = "ZRS"
-  enable_https_traffic_only = true
+  location = azurerm_resource_group.vnet.location
 
   # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service
   # See https://github.com/MicrosoftDocs/azure-docs/issues/5989
@@ -167,18 +167,18 @@ resource "azurerm_storage_account" "network" {
 # Route table
 #
 
-resource "azurerm_route_table" "public" {
-  name                = "${var.name}-public-rt"
+resource "azurerm_route_table" "out" {
+  name                = "${var.name}-outbound-rt"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
   tags = var.tags
 }
 
-resource "azurerm_route" "public_all" {
-  name                   = "all"
+resource "azurerm_route" "fw" {
+  name                   = "firewall"
   resource_group_name    = azurerm_resource_group.vnet.name
-  route_table_name       = azurerm_route_table.public.name
+  route_table_name       = azurerm_route_table.out.name
   address_prefix         = "0.0.0.0/0"
   next_hop_type          = "VirtualAppliance"
   next_hop_in_ip_address = azurerm_firewall.fw.ip_configuration.0.private_ip_address
@@ -186,12 +186,12 @@ resource "azurerm_route" "public_all" {
 
 resource "azurerm_subnet_route_table_association" "appgw" {
   subnet_id      = azurerm_subnet.appgw.id
-  route_table_id = azurerm_route_table.public.id
+  route_table_id = azurerm_route_table.out.id
 }
 
 resource "azurerm_subnet_route_table_association" "mgmt" {
   subnet_id      = azurerm_subnet.mgmt.id
-  route_table_id = azurerm_route_table.public.id
+  route_table_id = azurerm_route_table.out.id
 }
 
 #
@@ -239,11 +239,11 @@ resource "azurerm_network_security_group" "mgmt" {
     destination_address_prefix = "VirtualNetwork"
   }
 
-  tags = "${var.tags}"
+  tags = var.tags
 
   # TODO Does not exist as a resource...yet
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-mgmt-nsg --storage-account ${azurerm_storage_account.network.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-mgmt-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 }
 
@@ -343,7 +343,7 @@ resource "azurerm_network_security_group" "appgw" {
 
   # TODO Use new resource when exists
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-appgw-nsg --storage-account ${azurerm_storage_account.network.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-appgw-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 }
 
