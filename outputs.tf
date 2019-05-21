@@ -22,3 +22,7 @@ output "subnets" {
 output "firewall_private_ip" {
   value = azurerm_firewall.fw.ip_configuration.0.private_ip_address
 }
+
+output "test" {
+  value = local.app_allow_rules
+}

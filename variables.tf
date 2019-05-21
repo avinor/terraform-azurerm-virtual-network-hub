@@ -16,36 +16,37 @@ variable "address_space" {
 
 variable "log_analytics_workspace_id" {
   description = "Specifies the ID of a Log Analytics Workspace where Diagnostics Data should be sent."
+  default     = null
 }
 
 variable "mgmt_nsg_rules" {
   description = "Network security group rules to apply to the management subnet."
-  type = list(any)
-  default = []
+  type        = list(any)
+  default     = []
 }
 
 variable "appgw_nsg_rules" {
   description = "Network security group rules to apply to the application gateway subnet. Applies 80 and 443 as default rules."
-  type = list(any)
-  default = []
+  type        = list(any)
+  default     = []
 }
 
 variable "firewall_application_rules" {
   description = "List of application rules to apply to firewall."
-  type        = list(object({ name = string, source_addresses = list(string), target_fqdns = list(string), protocol = object({ type = string, port = string }) }))
+  type        = list(object({ name = string, action = string, source_addresses = list(string), target_fqdns = list(string), protocol = object({ type = string, port = string }) }))
   default     = []
 }
 
 variable "firewall_network_rules" {
   description = "List of network rules to apply to firewall."
-  type        = list(object({ name = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string) }))
+  type        = list(object({ name = string, action = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string) }))
   default     = []
 }
 
 variable "firewall_nat_rules" {
   description = "List of nat rules to apply to firewall."
-  type = list(object({ name = string, action = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string), translated_address = string, translated_port = string }))
-  default = []
+  type        = list(object({ name = string, action = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string), translated_address = string, translated_port = string }))
+  default     = []
 }
 
 variable "create_ddos_plan" {

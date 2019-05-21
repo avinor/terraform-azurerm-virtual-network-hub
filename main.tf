@@ -1,16 +1,93 @@
 terraform {
-  required_version = ">= 0.12.0"
   backend "azurerm" {}
+  required_version = ">= 0.12.0"
+  required_providers {
+    azurerm = ">= 1.28.0"
+  }
 }
 
 data "azurerm_client_config" "current" {}
 
 locals {
   default_nsg_rule = {
-    direction = "Inbound"
-    access = "Allow"
-    protocol = "Tcp"
+    direction                                  = "Inbound"
+    access                                     = "Allow"
+    protocol                                   = "Tcp"
+    description                                = null
+    source_port_range                          = null
+    source_port_ranges                         = null
+    destination_port_range                     = null
+    destination_port_ranges                    = null
+    source_address_prefix                      = null
+    source_address_prefixes                    = null
+    source_application_security_group_ids      = null
+    destination_address_prefix                 = null
+    destination_address_prefixes               = null
+    destination_application_security_group_ids = null
   }
+  default_mgmt_nsg_rules = [
+    {
+      name                       = "allow-load-balancer"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = "AzureLoadBalancer"
+      destination_address_prefix = "*"
+    },
+    {
+      name                       = "deny-other"
+      access                     = "Deny"
+      protocol                   = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "VirtualNetwork"
+    }
+  ]
+  default_appgw_nsg_rules = [
+    {
+      name                       = "allow-load-balancer"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = "AzureLoadBalancer"
+      destination_address_prefix = "*"
+    },
+    {
+      name                       = "allow-appgw-v2"
+      protocol                   = "*"
+      source_port_range          = "*"
+      destination_port_range     = "65200-65535"
+      source_address_prefix      = "*"
+      destination_address_prefix = "*"
+    },
+    {
+      name                       = "deny-other"
+      access                     = "Deny"
+      protocol                   = "*"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+      source_address_prefix      = "VirtualNetwork"
+      destination_address_prefix = "VirtualNetwork"
+    }
+  ]
+
+  merged_mgmt_nsg_rules = flatten([
+    [for nsg in var.mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
+    [for nsg in local.default_mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
+  ])
+
+  merged_appgw_nsg_rules = flatten([
+    [for nsg in var.appgw_nsg_rules : merge(local.default_nsg_rule, nsg)],
+    [for nsg in local.default_appgw_nsg_rules : merge(local.default_nsg_rule, nsg)],
+  ])
+
+  dnat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Dnat"]
+  snat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Snat"]
+
+  net_allow_rules = [for rule in var.firewall_network_rules : rule if rule.action == "Allow"]
+  net_deny_rules  = [for rule in var.firewall_network_rules : rule if rule.action == "Deny"]
+
+  app_allow_rules = [for rule in var.firewall_application_rules : rule if rule.action == "Allow"]
+  app_deny_rules  = [for rule in var.firewall_application_rules : rule if rule.action == "Deny"]
 }
 
 #
@@ -146,12 +223,12 @@ resource "azurerm_subnet" "appgw" {
 #
 
 module "storage" {
-  source = "avinor/storage-account/azurerm"
+  source  = "avinor/storage-account/azurerm"
   version = "1.0.0"
 
-  name = var.name
+  name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
-  location = azurerm_resource_group.vnet.location
+  location            = azurerm_resource_group.vnet.location
 
   # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service
   # See https://github.com/MicrosoftDocs/azure-docs/issues/5989
@@ -203,48 +280,35 @@ resource "azurerm_network_security_group" "mgmt" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
-  security_rule {
-    name                       = "allow-ssh"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "22"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
-  security_rule {
-    name                       = "allow-load-balancer"
-    priority                   = 200
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "AzureLoadBalancer"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "deny-other"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
   tags = var.tags
 
   # TODO Does not exist as a resource...yet
   provisioner "local-exec" {
     command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-mgmt-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
+}
+
+resource "azurerm_network_security_rule" "mgmt" {
+  count                       = length(local.merged_mgmt_nsg_rules)
+  resource_group_name         = azurerm_resource_group.vnet.name
+  network_security_group_name = azurerm_network_security_group.mgmt.name
+  priority                    = 100 + 100 * count.index
+
+  name                                       = local.merged_mgmt_nsg_rules[count.index].name
+  direction                                  = local.merged_mgmt_nsg_rules[count.index].direction
+  access                                     = local.merged_mgmt_nsg_rules[count.index].access
+  protocol                                   = local.merged_mgmt_nsg_rules[count.index].protocol
+  description                                = local.merged_mgmt_nsg_rules[count.index].description
+  source_port_range                          = local.merged_mgmt_nsg_rules[count.index].source_port_range
+  source_port_ranges                         = local.merged_mgmt_nsg_rules[count.index].source_port_ranges
+  destination_port_range                     = local.merged_mgmt_nsg_rules[count.index].destination_port_range
+  destination_port_ranges                    = local.merged_mgmt_nsg_rules[count.index].destination_port_ranges
+  source_address_prefix                      = local.merged_mgmt_nsg_rules[count.index].source_address_prefix
+  source_address_prefixes                    = local.merged_mgmt_nsg_rules[count.index].source_address_prefixes
+  source_application_security_group_ids      = local.merged_mgmt_nsg_rules[count.index].source_application_security_group_ids
+  destination_address_prefix                 = local.merged_mgmt_nsg_rules[count.index].destination_address_prefix
+  destination_address_prefixes               = local.merged_mgmt_nsg_rules[count.index].destination_address_prefixes
+  destination_application_security_group_ids = local.merged_mgmt_nsg_rules[count.index].destination_application_security_group_ids
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mgmt" {
@@ -279,72 +343,35 @@ resource "azurerm_network_security_group" "appgw" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
-  security_rule {
-    name                       = "allow-all-http"
-    priority                   = 100
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "allow-all-https"
-    priority                   = 200
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "443"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "allow-load-balancer"
-    priority                   = 300
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "AzureLoadBalancer"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "allow-appgw-v1"
-    priority                   = 400
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "65503-65534"
-    source_address_prefix      = "*"
-    destination_address_prefix = "*"
-  }
-
-  security_rule {
-    name                       = "deny-other"
-    priority                   = 500
-    direction                  = "Inbound"
-    access                     = "Deny"
-    protocol                   = "*"
-    source_port_range          = "*"
-    destination_port_range     = "*"
-    source_address_prefix      = "VirtualNetwork"
-    destination_address_prefix = "VirtualNetwork"
-  }
-
   tags = var.tags
 
   # TODO Use new resource when exists
   provisioner "local-exec" {
     command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-appgw-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
+}
+
+resource "azurerm_network_security_rule" "appgw" {
+  count                       = length(local.merged_appgw_nsg_rules)
+  resource_group_name         = azurerm_resource_group.vnet.name
+  network_security_group_name = azurerm_network_security_group.appgw.name
+  priority                    = 100 + 100 * count.index
+
+  name                                       = local.merged_appgw_nsg_rules[count.index].name
+  direction                                  = local.merged_appgw_nsg_rules[count.index].direction
+  access                                     = local.merged_appgw_nsg_rules[count.index].access
+  protocol                                   = local.merged_appgw_nsg_rules[count.index].protocol
+  description                                = local.merged_appgw_nsg_rules[count.index].description
+  source_port_range                          = local.merged_appgw_nsg_rules[count.index].source_port_range
+  source_port_ranges                         = local.merged_appgw_nsg_rules[count.index].source_port_ranges
+  destination_port_range                     = local.merged_appgw_nsg_rules[count.index].destination_port_range
+  destination_port_ranges                    = local.merged_appgw_nsg_rules[count.index].destination_port_ranges
+  source_address_prefix                      = local.merged_appgw_nsg_rules[count.index].source_address_prefix
+  source_address_prefixes                    = local.merged_appgw_nsg_rules[count.index].source_address_prefixes
+  source_application_security_group_ids      = local.merged_appgw_nsg_rules[count.index].source_application_security_group_ids
+  destination_address_prefix                 = local.merged_appgw_nsg_rules[count.index].destination_address_prefix
+  destination_address_prefixes               = local.merged_appgw_nsg_rules[count.index].destination_address_prefixes
+  destination_application_security_group_ids = local.merged_appgw_nsg_rules[count.index].destination_application_security_group_ids
 }
 
 resource "azurerm_monitor_diagnostic_setting" "appgw" {
@@ -472,39 +499,132 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
   }
 }
 
-resource "azurerm_firewall_application_rule_collection" "fw" {
-  count               = length(var.firewall_application_rules)
-  name                = "fwapprule${count.index}"
+resource "azurerm_firewall_application_rule_collection" "allow" {
+  count               = length(local.app_allow_rules) > 0 ? 1 : 0
+  name                = "allowrules"
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 + 100 * count.index
+  priority            = 100
   action              = "Allow"
 
-  rule {
-    name             = var.firewall_application_rules[count.index].name
-    source_addresses = var.firewall_application_rules[count.index].source_addresses
-    target_fqdns     = var.firewall_application_rules[count.index].target_fqdns
+  dynamic "rule" {
+    for_each = local.app_allow_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      target_fqdns          = rule.value.target_fqdns
 
-    protocol {
-      type = var.firewall_application_rules[count.index].protocol.type
-      port = var.firewall_application_rules[count.index].protocol.port
+      protocol {
+        type = rule.value.protocol.type
+        port = rule.value.protocol.port
+      }
     }
   }
 }
 
-resource "azurerm_firewall_network_rule_collection" "fw" {
-  count               = length(var.firewall_network_rules)
-  name                = "fwnetrule${count.index}"
+resource "azurerm_firewall_application_rule_collection" "deny" {
+  count               = length(local.app_deny_rules) > 0 ? 1 : 0
+  name                = "denyrules"
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 + 100 * count.index
+  priority            = 200
+  action              = "Deny"
+
+  dynamic "rule" {
+    for_each = local.app_deny_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      target_fqdns          = rule.value.target_fqdns
+
+      protocol {
+        type = rule.value.protocol.type
+        port = rule.value.protocol.port
+      }
+    }
+  }
+}
+
+resource "azurerm_firewall_network_rule_collection" "allow" {
+  count               = length(local.net_allow_rules) > 0 ? 1 : 0
+  name                = "allowrules"
+  azure_firewall_name = azurerm_firewall.fw.name
+  resource_group_name = azurerm_resource_group.vnet.name
+  priority            = 100
   action              = "Allow"
 
-  rule {
-    name                  = var.firewall_network_rules[count.index].name
-    source_addresses      = var.firewall_network_rules[count.index].source_addresses
-    destination_ports     = var.firewall_network_rules[count.index].destination_ports
-    destination_addresses = var.firewall_network_rules[count.index].destination_addresses
-    protocols             = var.firewall_network_rules[count.index].protocols
+  dynamic "rule" {
+    for_each = local.net_allow_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      destination_ports     = rule.value.destination_ports
+      destination_addresses = rule.value.destination_addresses
+      protocols             = rule.value.protocols
+    }
+  }
+}
+
+resource "azurerm_firewall_network_rule_collection" "deny" {
+  count               = length(local.net_deny_rules) > 0 ? 1 : 0
+  name                = "denyrules"
+  azure_firewall_name = azurerm_firewall.fw.name
+  resource_group_name = azurerm_resource_group.vnet.name
+  priority            = 200
+  action              = "Deny"
+
+  dynamic "rule" {
+    for_each = local.net_deny_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      destination_ports     = rule.value.destination_ports
+      destination_addresses = rule.value.destination_addresses
+      protocols             = rule.value.protocols
+    }
+  }
+}
+
+resource "azurerm_firewall_nat_rule_collection" "dnat" {
+  count               = length(local.dnat_rules) > 0 ? 1 : 0
+  name                = "dnatrules"
+  azure_firewall_name = azurerm_firewall.fw.name
+  resource_group_name = azurerm_resource_group.vnet.name
+  priority            = 100
+  action              = "Dnat"
+
+  dynamic "rule" {
+    for_each = local.dnat_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      destination_ports     = rule.value.destination_ports
+      destination_addresses = rule.value.destination_addresses
+      protocols             = rule.value.protocols
+      translated_address    = rule.value.translated_address
+      translated_port       = rule.value.translated_port
+    }
+  }
+}
+
+resource "azurerm_firewall_nat_rule_collection" "snat" {
+  count               = length(local.snat_rules) > 0 ? 1 : 0
+  name                = "snatrules"
+  azure_firewall_name = azurerm_firewall.fw.name
+  resource_group_name = azurerm_resource_group.vnet.name
+  priority            = 200
+  action              = "Snat"
+
+  dynamic "rule" {
+    for_each = local.snat_rules
+    content {
+      name                  = rule.value.name
+      source_addresses      = rule.value.source_addresses
+      destination_ports     = rule.value.destination_ports
+      destination_addresses = rule.value.destination_addresses
+      protocols             = rule.value.protocols
+      translated_address    = rule.value.translated_address
+      translated_port       = rule.value.translated_port
+    }
   }
 }

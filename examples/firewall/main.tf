@@ -10,6 +10,7 @@ module "hub" {
     firewall_application_rules = [
         {
             name = "microsoft"
+            action = "Allow"
             source_addresses = ["10.0.0.0/8"]
             target_fqdns = ["*.microsoft.com"]
             protocol = {
@@ -22,6 +23,7 @@ module "hub" {
     firewall_network_rules = [
         {
             name = "ntp"
+            action = "Allow"
             source_addresses = ["10.0.0.0/8"]
             destination_ports = ["123"]
             destination_addresses = ["*"]
