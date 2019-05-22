@@ -405,6 +405,12 @@ resource "azurerm_subnet_network_security_group_association" "appgw" {
 # Firewall
 #
 
+resource "random_string" "dns" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 resource "azurerm_public_ip" "fw" {
   name                = "${var.name}-fw-pip"
   location            = azurerm_resource_group.vnet.location
@@ -412,7 +418,7 @@ resource "azurerm_public_ip" "fw" {
 
   allocation_method = "Static"
   sku               = "Standard"
-  domain_name_label = "${var.name}fw"
+  domain_name_label = format("%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), random_string.dns.result)
 
   tags = var.tags
 }
