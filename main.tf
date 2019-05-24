@@ -144,9 +144,9 @@ resource "azurerm_subnet" "firewall" {
 
   service_endpoints = [
     "Microsoft.AzureActiveDirectory",
+    "Microsoft.AzureCosmosDB",
     "Microsoft.EventHub",
     "Microsoft.KeyVault",
-    "Microsoft.AzureCosmosDB",
     "Microsoft.ServiceBus",
     "Microsoft.Sql",
     "Microsoft.Storage",
@@ -312,6 +312,7 @@ resource "azurerm_network_security_rule" "mgmt" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mgmt" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "mgmt-nsg-log-analytics"
   target_resource_id         = azurerm_network_security_group.mgmt.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -375,6 +376,7 @@ resource "azurerm_network_security_rule" "appgw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "appgw" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "appgw-nsg-log-analytics"
   target_resource_id         = azurerm_network_security_group.appgw.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -424,6 +426,7 @@ resource "azurerm_public_ip" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "fw-pip-log-analytics"
   target_resource_id         = azurerm_public_ip.fw.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -476,6 +479,7 @@ resource "azurerm_firewall" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "fw-log-analytics"
   target_resource_id         = azurerm_firewall.fw.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
@@ -516,9 +520,9 @@ resource "azurerm_firewall_application_rule_collection" "allow" {
   dynamic "rule" {
     for_each = local.app_allow_rules
     content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      target_fqdns          = rule.value.target_fqdns
+      name             = rule.value.name
+      source_addresses = rule.value.source_addresses
+      target_fqdns     = rule.value.target_fqdns
 
       protocol {
         type = rule.value.protocol.type
@@ -539,9 +543,9 @@ resource "azurerm_firewall_application_rule_collection" "deny" {
   dynamic "rule" {
     for_each = local.app_deny_rules
     content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      target_fqdns          = rule.value.target_fqdns
+      name             = rule.value.name
+      source_addresses = rule.value.source_addresses
+      target_fqdns     = rule.value.target_fqdns
 
       protocol {
         type = rule.value.protocol.type
