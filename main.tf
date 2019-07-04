@@ -5,8 +5,6 @@ terraform {
   }
 }
 
-data "azurerm_client_config" "current" {}
-
 locals {
   default_nsg_rule = {
     direction                                  = "Inbound"
@@ -87,6 +85,26 @@ locals {
 
   app_allow_rules = [for rule in var.firewall_application_rules : rule if rule.action == "Allow"]
   app_deny_rules  = [for rule in var.firewall_application_rules : rule if rule.action == "Deny"]
+}
+
+data "azurerm_client_config" "current" {}
+
+#
+# Network watcher
+# Following Azure naming standard to not create twice
+#
+
+resource "azurerm_resource_group" "netwatcher" {
+  name     = "NetworkWatcherRG"
+  location = var.location
+
+  tags = var.tags
+}
+
+resource "azurerm_network_watcher" "netwatcher" {
+  name                = "NetworkWatcher_${var.location}"
+  location            = azurerm_resource_group.netwatcher.location
+  resource_group_name = azurerm_resource_group.netwatcher.name
 }
 
 #
