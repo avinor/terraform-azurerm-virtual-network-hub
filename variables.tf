@@ -49,6 +49,12 @@ variable "firewall_nat_rules" {
   default     = []
 }
 
+variable "netwatcher" {
+  description = "Properties for creating network watcher. If set it will create Network Watcher resource using standard naming standard."
+  type        = object({ resource_group_location = string })
+  default     = null
+}
+
 variable "create_ddos_plan" {
   description = "Create a DDos protection plan and attach to vnet."
   type        = bool

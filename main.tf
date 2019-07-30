@@ -1,7 +1,7 @@
 terraform {
   required_version = ">= 0.12.0"
   required_providers {
-    azurerm = ">= 1.28.0"
+    azurerm = ">= 1.32.0"
   }
 }
 
@@ -95,16 +95,20 @@ data "azurerm_client_config" "current" {}
 #
 
 resource "azurerm_resource_group" "netwatcher" {
+  count    = var.netwatcher != null ? 1 : 0
   name     = "NetworkWatcherRG"
-  location = var.location
+  location = var.netwatcher.resource_group_location
 
   tags = var.tags
 }
 
 resource "azurerm_network_watcher" "netwatcher" {
+  count               = var.netwatcher != null ? 1 : 0
   name                = "NetworkWatcher_${var.location}"
-  location            = azurerm_resource_group.netwatcher.location
-  resource_group_name = azurerm_resource_group.netwatcher.name
+  location            = var.location
+  resource_group_name = azurerm_resource_group.netwatcher.0.name
+
+  tags = var.tags
 }
 
 #
@@ -301,8 +305,8 @@ resource "azurerm_network_security_group" "mgmt" {
 }
 
 resource "null_resource" "mgmt_logs" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  
+  count = var.log_analytics_workspace_id != null ? 1 : 0
+
   # TODO Use new resource when exists
   provisioner "local-exec" {
     command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
@@ -371,7 +375,7 @@ resource "azurerm_network_security_group" "appgw" {
 }
 
 resource "null_resource" "appgw_logs" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
+  count = var.log_analytics_workspace_id != null ? 1 : 0
 
   # TODO Use new resource when exists
   provisioner "local-exec" {

@@ -111,6 +111,10 @@ It uses the premium DDos protection plan that offers more advanced protection, b
 
 Coupled together with Azure Application Gateway WAF it provides [full layer 3 to layer 7 mitigation capabilities](https://docs.microsoft.com/en-us/azure/virtual-network/ddos-protection-overview#types-of-ddos-attacks-that-ddos-protection-standard-mitigates).
 
+## Network watcher
+
+If defining the input variable `netwatcher` it will create a Network Watcher resource. Since Azure uses a specific naming standard on network watchers it tries to conform to that. It will create a resource group NetworkWatcherRG in location specific in `netwatcher` input variable.
+
 ## Storage account
 
 All flow logs are stored in a storage account creted by hub. Since flow logs do not support using service endpoints at the moment it cannot use network policy to restrict access. This might be implemented later and will be activated when possible.
