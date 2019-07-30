@@ -298,11 +298,17 @@ resource "azurerm_network_security_group" "mgmt" {
   resource_group_name = azurerm_resource_group.vnet.name
 
   tags = var.tags
+}
 
-  # TODO Does not exist as a resource...yet
+resource "null_resource" "mgmt_logs" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
+  
+  # TODO Use new resource when exists
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-mgmt-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
+
+  depends_on = ["azurerm_network_security_group.mgmt"]
 }
 
 resource "azurerm_network_security_rule" "mgmt" {
@@ -362,11 +368,17 @@ resource "azurerm_network_security_group" "appgw" {
   resource_group_name = azurerm_resource_group.vnet.name
 
   tags = var.tags
+}
+
+resource "null_resource" "appgw_logs" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
 
   # TODO Use new resource when exists
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg subnet-appgw-nsg --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.appgw.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
+
+  depends_on = ["azurerm_network_security_group.appgw"]
 }
 
 resource "azurerm_network_security_rule" "appgw" {

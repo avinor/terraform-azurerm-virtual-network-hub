@@ -8,13 +8,15 @@ The virtual network will be created with 4 subnets, AzureFirewallSubnet, Gateway
 
 ## Usage
 
-A simple hub network with no additional firewall or nsg rules.
+A simple hub network with no additional firewall or nsg rules deployed using [tau](https://github.com/avinor/tau).
 
 ```terraform
-module "hub" {
+module {
     source = "avinor/virtual-network-hub/azurerm"
     version = "1.0.0"
+}
 
+inputs {
     name = "hub"
     resource_group_name = "networking-hub"
     location = "westeurope"
@@ -26,10 +28,12 @@ module "hub" {
 For a more complete example with firewall rules and custom nsg rules added to management and application gateway subnet:
 
 ```terraform
-module "hub" {
+module {
     source = "avinor/virtual-network-hub/azurerm"
     version = "1.0.0"
+}
 
+inputs {
     name = "hub"
     resource_group_name = "networking-hub-rg"
     location = "westeurope"
