@@ -119,12 +119,12 @@ All flow logs are stored in a storage account creted by hub. Since flow logs do 
 
 Creates 4 subnets by default: GatewaySubnet, AzureFirewallSubnet, ApplicationGateway and Management.
 
-| Name       | Description |
-|------------|-------------|
-| GatewaySubnet   | Should contain VPN Gateway if deployed.
-| AzureFirewallSubnet | Deploys an Azure Firewall that will monitor all incoming and outgoing traffic
+| Name                 | Description |
+|----------------------|-------------|
+| GatewaySubnet        | Should contain VPN Gateway if deployed.
+| AzureFirewallSubnet  | Deploys an Azure Firewall that will monitor all incoming and outgoing traffic
 | ApplicationGateway   | Should contain an Application Gateway if deployed
-| Management    | Management subnet for jumphost, accessible from gateway
+| Management           | Management subnet for jumphost, accessible from gateway
 
 Both GatewaySubnet and AzureFirewallSubnet allow traffic out and can have public ips. ApplicationGateway and Management subnets route traffic through firewall and does not support public ips due to asymmetric routing.
 
