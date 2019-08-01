@@ -13,7 +13,7 @@ A simple hub network with no additional firewall or nsg rules deployed using [ta
 ```terraform
 module {
     source = "avinor/virtual-network-hub/azurerm"
-    version = "1.0.0"
+    version = "1.1.0"
 }
 
 inputs {
@@ -30,7 +30,7 @@ For a more complete example with firewall rules and custom nsg rules added to ma
 ```terraform
 module {
     source = "avinor/virtual-network-hub/azurerm"
-    version = "1.0.0"
+    version = "1.1.0"
 }
 
 inputs {
