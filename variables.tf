@@ -25,12 +25,6 @@ variable "mgmt_nsg_rules" {
   default     = []
 }
 
-variable "appgw_nsg_rules" {
-  description = "Network security group rules to apply to the application gateway subnet. Applies 80 and 443 as default rules."
-  type        = list(any)
-  default     = []
-}
-
 variable "firewall_application_rules" {
   description = "List of application rules to apply to firewall."
   type        = list(object({ name = string, action = string, source_addresses = list(string), target_fqdns = list(string), protocol = object({ type = string, port = string }) }))

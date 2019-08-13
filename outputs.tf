@@ -15,7 +15,6 @@ output "subnets" {
     gateway  = azurerm_subnet.gateway.id
     firewall = azurerm_subnet.firewall.id
     mgmt     = azurerm_subnet.mgmt.id
-    appgw    = azurerm_subnet.appgw.id
   }
 }
 

@@ -40,41 +40,10 @@ locals {
       destination_address_prefix = "VirtualNetwork"
     }
   ]
-  default_appgw_nsg_rules = [
-    {
-      name                       = "allow-load-balancer"
-      source_port_range          = "*"
-      destination_port_range     = "*"
-      source_address_prefix      = "AzureLoadBalancer"
-      destination_address_prefix = "*"
-    },
-    {
-      name                       = "allow-appgw-v2"
-      protocol                   = "*"
-      source_port_range          = "*"
-      destination_port_range     = "65200-65535"
-      source_address_prefix      = "*"
-      destination_address_prefix = "*"
-    },
-    {
-      name                       = "deny-other"
-      access                     = "Deny"
-      protocol                   = "*"
-      source_port_range          = "*"
-      destination_port_range     = "*"
-      source_address_prefix      = "VirtualNetwork"
-      destination_address_prefix = "VirtualNetwork"
-    }
-  ]
 
   merged_mgmt_nsg_rules = flatten([
     [for nsg in var.mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
     [for nsg in local.default_mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
-  ])
-
-  merged_appgw_nsg_rules = flatten([
-    [for nsg in var.appgw_nsg_rules : merge(local.default_nsg_rule, nsg)],
-    [for nsg in local.default_appgw_nsg_rules : merge(local.default_nsg_rule, nsg)],
   ])
 
   dnat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Dnat"]
@@ -243,25 +212,6 @@ resource "azurerm_subnet" "mgmt" {
   }
 }
 
-resource "azurerm_subnet" "appgw" {
-  name                 = "ApplicationGateway"
-  resource_group_name  = azurerm_resource_group.vnet.name
-  virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 3)
-
-  service_endpoints = [
-    "Microsoft.Storage",
-  ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      "route_table_id",
-      "network_security_group_id",
-    ]
-  }
-}
-
 #
 # Storage account for flow logs
 #
@@ -305,11 +255,6 @@ resource "azurerm_route" "fw" {
   address_prefix         = "0.0.0.0/0"
   next_hop_type          = "VirtualAppliance"
   next_hop_in_ip_address = azurerm_firewall.fw.ip_configuration.0.private_ip_address
-}
-
-resource "azurerm_subnet_route_table_association" "appgw" {
-  subnet_id      = azurerm_subnet.appgw.id
-  route_table_id = azurerm_route_table.out.id
 }
 
 resource "azurerm_subnet_route_table_association" "mgmt" {
@@ -389,76 +334,6 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
 resource "azurerm_subnet_network_security_group_association" "mgmt" {
   subnet_id                 = azurerm_subnet.mgmt.id
   network_security_group_id = azurerm_network_security_group.mgmt.id
-}
-
-resource "azurerm_network_security_group" "appgw" {
-  name                = "subnet-appgw-nsg"
-  location            = azurerm_resource_group.vnet.location
-  resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
-}
-
-resource "null_resource" "appgw_logs" {
-  count = var.log_analytics_workspace_id != null ? 1 : 0
-
-  # TODO Use new resource when exists
-  provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.appgw.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
-  }
-
-  depends_on = ["azurerm_network_security_group.appgw"]
-}
-
-resource "azurerm_network_security_rule" "appgw" {
-  count                       = length(local.merged_appgw_nsg_rules)
-  resource_group_name         = azurerm_resource_group.vnet.name
-  network_security_group_name = azurerm_network_security_group.appgw.name
-  priority                    = 100 + 100 * count.index
-
-  name                                       = local.merged_appgw_nsg_rules[count.index].name
-  direction                                  = local.merged_appgw_nsg_rules[count.index].direction
-  access                                     = local.merged_appgw_nsg_rules[count.index].access
-  protocol                                   = local.merged_appgw_nsg_rules[count.index].protocol
-  description                                = local.merged_appgw_nsg_rules[count.index].description
-  source_port_range                          = local.merged_appgw_nsg_rules[count.index].source_port_range
-  source_port_ranges                         = local.merged_appgw_nsg_rules[count.index].source_port_ranges
-  destination_port_range                     = local.merged_appgw_nsg_rules[count.index].destination_port_range
-  destination_port_ranges                    = local.merged_appgw_nsg_rules[count.index].destination_port_ranges
-  source_address_prefix                      = local.merged_appgw_nsg_rules[count.index].source_address_prefix
-  source_address_prefixes                    = local.merged_appgw_nsg_rules[count.index].source_address_prefixes
-  source_application_security_group_ids      = local.merged_appgw_nsg_rules[count.index].source_application_security_group_ids
-  destination_address_prefix                 = local.merged_appgw_nsg_rules[count.index].destination_address_prefix
-  destination_address_prefixes               = local.merged_appgw_nsg_rules[count.index].destination_address_prefixes
-  destination_application_security_group_ids = local.merged_appgw_nsg_rules[count.index].destination_application_security_group_ids
-}
-
-resource "azurerm_monitor_diagnostic_setting" "appgw" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "appgw-nsg-log-analytics"
-  target_resource_id         = azurerm_network_security_group.appgw.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
-
-  log {
-    category = "NetworkSecurityGroupEvent"
-
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  log {
-    category = "NetworkSecurityGroupRuleCounter"
-
-    retention_policy {
-      enabled = false
-    }
-  }
-}
-
-resource "azurerm_subnet_network_security_group_association" "appgw" {
-  subnet_id                 = azurerm_subnet.appgw.id
-  network_security_group_id = azurerm_network_security_group.appgw.id
 }
 
 #
