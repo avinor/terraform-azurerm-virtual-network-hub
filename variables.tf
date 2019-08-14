@@ -19,8 +19,14 @@ variable "log_analytics_workspace_id" {
   default     = null
 }
 
-variable "mgmt_nsg_rules" {
-  description = "Network security group rules to apply to the management subnet."
+variable "management_nsg_rules" {
+  description = "Network security rules to add to management subnet. See README for details on how to setup."
+  type        = list(any)
+  default     = []
+}
+
+variable "dmz_nsg_rules" {
+  description = "Network security rules to add to dmz subnet. See README for details on how to setup."
   type        = list(any)
   default     = []
 }

@@ -12,9 +12,10 @@ output "vnet_name" {
 
 output "subnets" {
   value = {
-    gateway  = azurerm_subnet.gateway.id
-    firewall = azurerm_subnet.firewall.id
-    mgmt     = azurerm_subnet.mgmt.id
+    gateway    = azurerm_subnet.gateway.id
+    firewall   = azurerm_subnet.firewall.id
+    management = azurerm_subnet.mgmt.id
+    dmz        = azurerm_subnet.dmz.id
   }
 }
 

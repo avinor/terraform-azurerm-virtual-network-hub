@@ -1,27 +1,30 @@
 # Hub network
 
-Using [Microsoft recommended Hub-Spoke network topology](https://docs.microsoft.com/en-us/azure/architecture/reference-architectures/hybrid-networking/hub-spoke) this module deployes the hub vnet. Generally there should only be one hub in each region with multiple spokes, where each of them can also be in separate subscriptions. Currently it does not support setting up peering between hub's in different regions, but that could be added as a feature later.
+This module deploys a hub network using the [Microsoft recommended Hub-Spoke network topology](https://docs.microsoft.com/en-us/azure/architecture/reference-architectures/hybrid-networking/hub-spoke). Generally there should only be one hub in each region with multiple spokes, where each of them can also be in separate subscriptions. Currently it does not support setting up peering between hub's in different regions, but that could be added as a feature later.
 
-The virtual network will be created with 4 subnets, AzureFirewallSubnet, GatewaySubnet, Management and ApplicationGateway. AzureFirewallSubnet and GatewaySubnet will not contain any UDR (User Defined Route) or NSG (Network Security Group). Management and Application Gateway will route all outgoing traffic through firewall instance.
+The virtual network will be created with 4 subnets, AzureFirewallSubnet, GatewaySubnet, Management and DMZ. AzureFirewallSubnet and GatewaySubnet will not contain any UDR (User Defined Route) or NSG (Network Security Group) since that is not possible with resources deployed in those subnets. Management and DMZ will route all outgoing traffic through firewall instance.
 
-![hub topology](images/hub-network.png)
+![hub topology](images/hub-spoke.png)
+Source: https://docs.microsoft.com/en-us/azure/architecture/reference-architectures/hybrid-networking/hub-spoke
+
+In diagram hub network is connected to on-premise network, but works just as well with public network.
 
 ## Usage
 
-A simple hub network with no additional firewall or nsg rules deployed using [tau](https://github.com/avinor/tau).
+To create a simple hub network with no additional firewall or nsg rules deployed using [tau](https://github.com/avinor/tau).
 
 ```terraform
 module {
     source = "avinor/virtual-network-hub/azurerm"
-    version = "1.1.0"
+    version = "1.2.0"
 }
 
 inputs {
     name = "hub"
     resource_group_name = "networking-hub"
     location = "westeurope"
-    address_space = "10.0.0.0/23"
-    log_analytics_workspace_id = "log_id"
+    address_space = "10.0.0.0/24"
+    log_analytics_workspace_id = "/subscription/xxxx-xxxx/.../resource_id"
 }
 ```
 
@@ -30,17 +33,17 @@ For a more complete example with firewall rules and custom nsg rules added to ma
 ```terraform
 module {
     source = "avinor/virtual-network-hub/azurerm"
-    version = "1.1.0"
+    version = "1.2.0"
 }
 
 inputs {
     name = "hub"
     resource_group_name = "networking-hub-rg"
     location = "westeurope"
-    address_space = "10.0.0.0/22"
-    log_analytics_workspace_id = "log_id"
+    address_space = "10.0.0.0/24"
+    log_analytics_workspace_id = "/subscription/xxxx-xxxx/.../resource_id"
 
-    mgmt_nsg_rules = [
+    management_nsg_rules = [
     {
         name = "allow-ssh"
         direction = "Inbound"
@@ -53,7 +56,7 @@ inputs {
     },
     ]
 
-    appgw_nsg_rules = [
+    dmz_nsg_rules = [
     {
         name                       = "allow-all-http"
         direction                  = "Inbound"

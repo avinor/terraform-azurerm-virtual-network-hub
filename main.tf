@@ -42,8 +42,11 @@ locals {
   ]
 
   merged_mgmt_nsg_rules = flatten([
-    [for nsg in var.mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
-    [for nsg in local.default_mgmt_nsg_rules : merge(local.default_nsg_rule, nsg)],
+    for nsg in var.management_nsg_rules : merge(local.default_nsg_rule, nsg)
+  ])
+
+  merged_dmz_nsg_rules = flatten([
+    for nsg in var.dmz_nsg_rules : merge(local.default_nsg_rule, nsg)
   ])
 
   dnat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Dnat"]
@@ -212,13 +215,32 @@ resource "azurerm_subnet" "mgmt" {
   }
 }
 
+resource "azurerm_subnet" "dmz" {
+  name                 = "DMZ"
+  resource_group_name  = azurerm_resource_group.vnet.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
+  address_prefix       = cidrsubnet(var.address_space, 2, 3)
+
+  service_endpoints = [
+    "Microsoft.Storage",
+  ]
+
+  lifecycle {
+    # TODO Remove this when azurerm 2.0 provider is released
+    ignore_changes = [
+      "route_table_id",
+      "network_security_group_id",
+    ]
+  }
+}
+
 #
 # Storage account for flow logs
 #
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "1.2.0"
+  version = "1.3.0"
 
   name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
@@ -259,6 +281,11 @@ resource "azurerm_route" "fw" {
 
 resource "azurerm_subnet_route_table_association" "mgmt" {
   subnet_id      = azurerm_subnet.mgmt.id
+  route_table_id = azurerm_route_table.out.id
+}
+
+resource "azurerm_subnet_route_table_association" "dmz" {
+  subnet_id      = azurerm_subnet.dmz.id
   route_table_id = azurerm_route_table.out.id
 }
 
@@ -334,6 +361,76 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
 resource "azurerm_subnet_network_security_group_association" "mgmt" {
   subnet_id                 = azurerm_subnet.mgmt.id
   network_security_group_id = azurerm_network_security_group.mgmt.id
+}
+
+resource "azurerm_network_security_group" "dmz" {
+  name                = "subnet-dmz-nsg"
+  location            = azurerm_resource_group.vnet.location
+  resource_group_name = azurerm_resource_group.vnet.name
+
+  tags = var.tags
+}
+
+resource "null_resource" "dmz_logs" {
+  count = var.log_analytics_workspace_id != null ? 1 : 0
+
+  # TODO Use new resource when exists
+  provisioner "local-exec" {
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+  }
+
+  depends_on = ["azurerm_network_security_group.dmz"]
+}
+
+resource "azurerm_network_security_rule" "dmz" {
+  count                       = length(local.merged_dmz_nsg_rules)
+  resource_group_name         = azurerm_resource_group.vnet.name
+  network_security_group_name = azurerm_network_security_group.dmz.name
+  priority                    = 100 + 100 * count.index
+
+  name                                       = local.merged_dmz_nsg_rules[count.index].name
+  direction                                  = local.merged_dmz_nsg_rules[count.index].direction
+  access                                     = local.merged_dmz_nsg_rules[count.index].access
+  protocol                                   = local.merged_dmz_nsg_rules[count.index].protocol
+  description                                = local.merged_dmz_nsg_rules[count.index].description
+  source_port_range                          = local.merged_dmz_nsg_rules[count.index].source_port_range
+  source_port_ranges                         = local.merged_dmz_nsg_rules[count.index].source_port_ranges
+  destination_port_range                     = local.merged_dmz_nsg_rules[count.index].destination_port_range
+  destination_port_ranges                    = local.merged_dmz_nsg_rules[count.index].destination_port_ranges
+  source_address_prefix                      = local.merged_dmz_nsg_rules[count.index].source_address_prefix
+  source_address_prefixes                    = local.merged_dmz_nsg_rules[count.index].source_address_prefixes
+  source_application_security_group_ids      = local.merged_dmz_nsg_rules[count.index].source_application_security_group_ids
+  destination_address_prefix                 = local.merged_dmz_nsg_rules[count.index].destination_address_prefix
+  destination_address_prefixes               = local.merged_dmz_nsg_rules[count.index].destination_address_prefixes
+  destination_application_security_group_ids = local.merged_dmz_nsg_rules[count.index].destination_application_security_group_ids
+}
+
+resource "azurerm_monitor_diagnostic_setting" "dmz" {
+  count                      = var.log_analytics_workspace_id != null ? 1 : 0
+  name                       = "dmz-nsg-log-analytics"
+  target_resource_id         = azurerm_network_security_group.dmz.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  log {
+    category = "NetworkSecurityGroupEvent"
+
+    retention_policy {
+      enabled = false
+    }
+  }
+
+  log {
+    category = "NetworkSecurityGroupRuleCounter"
+
+    retention_policy {
+      enabled = false
+    }
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "dmz" {
+  subnet_id                 = azurerm_subnet.dmz.id
+  network_security_group_id = azurerm_network_security_group.dmz.id
 }
 
 #
