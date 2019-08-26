@@ -627,7 +627,7 @@ resource "azurerm_firewall_nat_rule_collection" "dnat" {
     name                  = local.dnat_rules[count.index].name
     source_addresses      = local.dnat_rules[count.index].source_addresses
     destination_ports     = local.dnat_rules[count.index].destination_ports
-    destination_addresses = local.dnat_rules[count.index].destination_addresses
+    destination_addresses = [for dest in local.dnat_rules[count.index].destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
     protocols             = local.dnat_rules[count.index].protocols
     translated_address    = local.dnat_rules[count.index].translated_address
     translated_port       = local.dnat_rules[count.index].translated_port
@@ -646,7 +646,7 @@ resource "azurerm_firewall_nat_rule_collection" "snat" {
     name                  = local.snat_rules[count.index].name
     source_addresses      = local.snat_rules[count.index].source_addresses
     destination_ports     = local.snat_rules[count.index].destination_ports
-    destination_addresses = [for dest in local.snat_rules[count.index].destination_addresses : contains(var.public_ip_names, local.snat_rules[count.index].destination_addresses) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
+    destination_addresses = [for dest in local.snat_rules[count.index].destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
     protocols             = local.snat_rules[count.index].protocols
     translated_address    = local.snat_rules[count.index].translated_address
     translated_port       = local.snat_rules[count.index].translated_port
