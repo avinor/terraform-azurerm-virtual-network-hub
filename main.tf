@@ -438,27 +438,29 @@ resource "azurerm_subnet_network_security_group_association" "dmz" {
 #
 
 resource "random_string" "dns" {
+  count   = length(var.public_ip_names)
   length  = 6
   special = false
   upper   = false
 }
 
 resource "azurerm_public_ip" "fw" {
-  name                = "${var.name}-fw-pip"
+  count               = length(var.public_ip_names)
+  name                = "${var.name}-fw-${var.public_ip_names[count.index]}-pip"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
   allocation_method = "Static"
   sku               = "Standard"
-  domain_name_label = format("%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), random_string.dns.result)
+  domain_name_label = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(var.public_ip_names[count.index], "/[[:^alnum:]]/", "")), random_string.dns[count.index].result)
 
   tags = var.tags
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
+  count                      = var.log_analytics_workspace_id != null ? length(var.public_ip_names) : 0
   name                       = "fw-pip-log-analytics"
-  target_resource_id         = azurerm_public_ip.fw.id
+  target_resource_id         = azurerm_public_ip.fw[count.index].id
   log_analytics_workspace_id = var.log_analytics_workspace_id
 
   log {
@@ -500,9 +502,9 @@ resource "azurerm_firewall" "fw" {
   resource_group_name = azurerm_resource_group.vnet.name
 
   ip_configuration {
-    name                 = "configuration"
+    name                 = var.public_ip_names[0]
     subnet_id            = azurerm_subnet.firewall.id
-    public_ip_address_id = azurerm_public_ip.fw.id
+    public_ip_address_id = azurerm_public_ip.fw[0].id
   }
 
   tags = var.tags
@@ -540,131 +542,113 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
 }
 
 resource "azurerm_firewall_application_rule_collection" "allow" {
-  count               = length(local.app_allow_rules) > 0 ? 1 : 0
-  name                = "allowrules"
+  count               = length(local.app_allow_rules)
+  name                = local.app_allow_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100
+  priority            = 100 * (count.index + 1)
   action              = "Allow"
 
-  dynamic "rule" {
-    for_each = local.app_allow_rules
-    content {
-      name             = rule.value.name
-      source_addresses = rule.value.source_addresses
-      target_fqdns     = rule.value.target_fqdns
+  rule {
+    name             = local.app_allow_rules[count.index].name
+    source_addresses = local.app_allow_rules[count.index].source_addresses
+    target_fqdns     = local.app_allow_rules[count.index].target_fqdns
 
-      protocol {
-        type = rule.value.protocol.type
-        port = rule.value.protocol.port
-      }
+    protocol {
+      type = local.app_allow_rules[count.index].protocol.type
+      port = local.app_allow_rules[count.index].protocol.port
     }
   }
 }
 
 resource "azurerm_firewall_application_rule_collection" "deny" {
-  count               = length(local.app_deny_rules) > 0 ? 1 : 0
-  name                = "denyrules"
+  count               = length(local.app_deny_rules)
+  name                = local.app_deny_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 200
+  priority            = 10000 + 100 * count.index
   action              = "Deny"
 
-  dynamic "rule" {
-    for_each = local.app_deny_rules
-    content {
-      name             = rule.value.name
-      source_addresses = rule.value.source_addresses
-      target_fqdns     = rule.value.target_fqdns
+  rule {
+    name             = local.app_deny_rules[count.index].name
+    source_addresses = local.app_deny_rules[count.index].source_addresses
+    target_fqdns     = local.app_deny_rules[count.index].target_fqdns
 
-      protocol {
-        type = rule.value.protocol.type
-        port = rule.value.protocol.port
-      }
+    protocol {
+      type = local.app_deny_rules[count.index].protocol.type
+      port = local.app_deny_rules[count.index].protocol.port
     }
   }
 }
 
 resource "azurerm_firewall_network_rule_collection" "allow" {
-  count               = length(local.net_allow_rules) > 0 ? 1 : 0
-  name                = "allowrules"
+  count               = length(local.net_allow_rules)
+  name                = local.net_allow_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100
+  priority            = 100 * (count.index + 1)
   action              = "Allow"
 
-  dynamic "rule" {
-    for_each = local.net_allow_rules
-    content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      destination_ports     = rule.value.destination_ports
-      destination_addresses = rule.value.destination_addresses
-      protocols             = rule.value.protocols
-    }
+  rule {
+    name                  = local.net_allow_rules[count.index].name
+    source_addresses      = local.net_allow_rules[count.index].source_addresses
+    destination_ports     = local.net_allow_rules[count.index].destination_ports
+    destination_addresses = local.net_allow_rules[count.index].destination_addresses
+    protocols             = local.net_allow_rules[count.index].protocols
   }
 }
 
 resource "azurerm_firewall_network_rule_collection" "deny" {
-  count               = length(local.net_deny_rules) > 0 ? 1 : 0
-  name                = "denyrules"
+  count               = length(local.net_deny_rules)
+  name                = local.net_deny_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 200
+  priority            = 10000 + 100 * count.index
   action              = "Deny"
 
-  dynamic "rule" {
-    for_each = local.net_deny_rules
-    content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      destination_ports     = rule.value.destination_ports
-      destination_addresses = rule.value.destination_addresses
-      protocols             = rule.value.protocols
-    }
+  rule {
+    name                  = local.net_deny_rules[count.index].name
+    source_addresses      = local.net_deny_rules[count.index].source_addresses
+    destination_ports     = local.net_deny_rules[count.index].destination_ports
+    destination_addresses = local.net_deny_rules[count.index].destination_addresses
+    protocols             = local.net_deny_rules[count.index].protocols
   }
 }
 
 resource "azurerm_firewall_nat_rule_collection" "dnat" {
-  count               = length(local.dnat_rules) > 0 ? 1 : 0
-  name                = "dnatrules"
+  count               = length(local.dnat_rules)
+  name                = local.dnat_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100
+  priority            = 100 * (count.index + 1)
   action              = "Dnat"
 
-  dynamic "rule" {
-    for_each = local.dnat_rules
-    content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      destination_ports     = rule.value.destination_ports
-      destination_addresses = rule.value.destination_addresses
-      protocols             = rule.value.protocols
-      translated_address    = rule.value.translated_address
-      translated_port       = rule.value.translated_port
-    }
+  rule {
+    name                  = local.dnat_rules[count.index].name
+    source_addresses      = local.dnat_rules[count.index].source_addresses
+    destination_ports     = local.dnat_rules[count.index].destination_ports
+    destination_addresses = local.dnat_rules[count.index].destination_addresses
+    protocols             = local.dnat_rules[count.index].protocols
+    translated_address    = local.dnat_rules[count.index].translated_address
+    translated_port       = local.dnat_rules[count.index].translated_port
   }
 }
 
 resource "azurerm_firewall_nat_rule_collection" "snat" {
-  count               = length(local.snat_rules) > 0 ? 1 : 0
-  name                = "snatrules"
+  count               = length(local.snat_rules)
+  name                = local.snat_rules[count.index].name
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 200
+  priority            = 10000 + 100 * count.index
   action              = "Snat"
 
-  dynamic "rule" {
-    for_each = local.snat_rules
-    content {
-      name                  = rule.value.name
-      source_addresses      = rule.value.source_addresses
-      destination_ports     = rule.value.destination_ports
-      destination_addresses = rule.value.destination_addresses
-      protocols             = rule.value.protocols
-      translated_address    = rule.value.translated_address
-      translated_port       = rule.value.translated_port
-    }
+  rule {
+    name                  = local.snat_rules[count.index].name
+    source_addresses      = local.snat_rules[count.index].source_addresses
+    destination_ports     = local.snat_rules[count.index].destination_ports
+    destination_addresses = [for dest in local.snat_rules[count.index].destination_addresses : contains(var.public_ip_names, local.snat_rules[count.index].destination_addresses) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
+    protocols             = local.snat_rules[count.index].protocols
+    translated_address    = local.snat_rules[count.index].translated_address
+    translated_port       = local.snat_rules[count.index].translated_port
   }
 }

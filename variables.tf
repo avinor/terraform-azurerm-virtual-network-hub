@@ -31,6 +31,11 @@ variable "dmz_nsg_rules" {
   default     = []
 }
 
+variable "public_ip_names" {
+  description = "Public ips is a list of ip names that are connected to the firewall. At least one is required."
+  type        = list(string)
+}
+
 variable "firewall_application_rules" {
   description = "List of application rules to apply to firewall."
   type        = list(object({ name = string, action = string, source_addresses = list(string), target_fqdns = list(string), protocol = object({ type = string, port = string }) }))
