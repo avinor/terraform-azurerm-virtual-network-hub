@@ -60,6 +60,12 @@ variable "netwatcher" {
   default     = null
 }
 
+variable "peering_assignment" {
+  description = "List of principal ids that should have access to peer to this Hub network. All service principals used to deploy spoke networks should have access to peer."
+  type        = list(string)
+  default     = []
+}
+
 variable "create_ddos_plan" {
   description = "Create a DDos protection plan and attach to vnet."
   type        = bool

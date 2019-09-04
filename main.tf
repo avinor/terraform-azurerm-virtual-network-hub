@@ -129,6 +129,13 @@ resource "azurerm_virtual_network" "vnet" {
   tags = var.tags
 }
 
+resource "azurerm_role_assignment" "peering" {
+  count                = length(var.peering_assignment)
+  scope                = azurerm_virtual_network.vnet.id
+  role_definition_name = "Network Contributor"
+  principal_id         = var.peering_assignment[count.index]
+}
+
 resource "azurerm_monitor_diagnostic_setting" "vnet" {
   count                      = var.log_analytics_workspace_id != null ? 1 : 0
   name                       = "vnet-analytics"
