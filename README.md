@@ -149,3 +149,7 @@ protocol     = "Tcp"
 ## Firewall rules
 
 Input variables `firewall_application_rules`, `firewall_network_rules` and `firewall_nat_rules` can be used to define firewall rules. See variable input object for which parameters are required.
+
+## Peering
+
+To peer spoke networks to hub it requires that the service principal that performs the peering has Network Contributor role on hub network. To grant service principal this access use the `peering_assignment` input variable. Send a list of all service principals that should have access to peer against hub network.
