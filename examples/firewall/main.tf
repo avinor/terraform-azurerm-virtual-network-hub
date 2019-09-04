@@ -4,8 +4,12 @@ module "hub" {
     name = "hub"
     resource_group_name = "networking-hub"
     location = "westeurope"
-    address_space = "10.0.0.0/23"
-    log_analytics_workspace_id = "guid"
+    address_space = "10.0.0.0/24"
+    log_analytics_workspace_id = "/subscription/xxxx-xxxx/.../resource_id"
+
+    public_ip_names = [
+        "fw-public"
+    ]
 
     firewall_application_rules = [
         {

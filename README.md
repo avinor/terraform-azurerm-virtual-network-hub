@@ -24,7 +24,6 @@ inputs {
     resource_group_name = "networking-hub"
     location = "westeurope"
     address_space = "10.0.0.0/24"
-    log_analytics_workspace_id = "/subscription/xxxx-xxxx/.../resource_id"
 }
 ```
 
