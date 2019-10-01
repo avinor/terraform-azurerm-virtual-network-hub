@@ -153,3 +153,7 @@ Input variables `firewall_application_rules`, `firewall_network_rules` and `fire
 ## Peering
 
 To peer spoke networks to hub it requires that the service principal that performs the peering has Network Contributor role on hub network. To grant service principal this access use the `peering_assignment` input variable. Send a list of all service principals that should have access to peer against hub network.
+
+## Private DNS Zone
+
+To create a private dns zone for virtual network set the domain name for zone with variable `private_dns_zone`. This will create a private dns zone and link the virtual network hub to zone. It will also assign all principals that have peering access as contributors so spokes can be linked to same zone.

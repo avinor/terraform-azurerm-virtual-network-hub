@@ -22,3 +22,10 @@ output "subnets" {
 output "firewall_private_ip" {
   value = azurerm_firewall.fw.ip_configuration.0.private_ip_address
 }
+
+output "private_dns" {
+  value = var.private_dns_zone == null ? null : {
+    id = azurerm_private_dns_zone.main[0].id
+    name = azurerm_private_dns_zone.main[0].name
+  }
+}
