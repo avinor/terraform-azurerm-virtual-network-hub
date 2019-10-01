@@ -441,6 +441,36 @@ resource "azurerm_subnet_network_security_group_association" "dmz" {
 }
 
 #
+# Private DNS
+#
+
+resource "azurerm_private_dns_zone" "main" {
+  count               = var.private_dns_zone != null ? 1 : 0
+  name                = var.private_dns_zone
+  resource_group_name = azurerm_resource_group.vnet.name
+
+  tags = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "main" {
+  count                 = var.private_dns_zone != null ? 1 : 0
+  name                  = "${var.name}-link"
+  resource_group_name   = azurerm_resource_group.vnet.name
+  private_dns_zone_name = azurerm_private_dns_zone.main[0].name
+  virtual_network_id    = azurerm_virtual_network.vnet.id
+  registration_enabled  = true
+
+  tags = var.tags
+}
+
+resource "azurerm_role_assignment" "dns" {
+  count                = var.private_dns_zone != null ? length(var.peering_assignment) : 0
+  scope                = azurerm_private_dns_zone.main[0].id
+  role_definition_name = "Private DNS Zone Contributor"
+  principal_id         = var.peering_assignment[count.index]
+}
+
+#
 # Firewall
 #
 

@@ -72,6 +72,11 @@ variable "create_ddos_plan" {
   default     = false
 }
 
+variable "private_dns_zone" {
+  description = "Name of private dns zone to create and associate with virtual network."
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to all resources created."
   type        = map(string)
