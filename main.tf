@@ -544,6 +544,13 @@ resource "azurerm_firewall" "fw" {
     public_ip_address_id = azurerm_public_ip.fw[0].id
   }
 
+  # Avoid changes when adding more public ips manually to firewall
+  lifecycle {
+    ignore_changes = [
+      "ip_configuration",
+    ]
+  }
+
   tags = var.tags
 }
 
