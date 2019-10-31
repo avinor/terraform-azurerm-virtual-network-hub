@@ -1,7 +1,7 @@
 terraform {
   required_version = ">= 0.12.0"
   required_providers {
-    azurerm = ">= 1.32.0"
+    azurerm = "~> 1.36.0"
   }
 }
 
@@ -474,6 +474,16 @@ resource "azurerm_role_assignment" "dns" {
 # Firewall
 #
 
+resource "azurerm_public_ip_prefix" "fw" {
+  name                = "${var.name}-pip-prefix"
+  location            = azurerm_resource_group.vnet.location
+  resource_group_name = azurerm_resource_group.vnet.name
+
+  prefix_length = var.public_ip_prefix_length
+
+  tags = var.tags
+}
+
 resource "random_string" "dns" {
   count   = length(var.public_ip_names)
   length  = 6
@@ -487,9 +497,10 @@ resource "azurerm_public_ip" "fw" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
-  allocation_method = "Static"
-  sku               = "Standard"
-  domain_name_label = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(var.public_ip_names[count.index], "/[[:^alnum:]]/", "")), random_string.dns[count.index].result)
+  allocation_method   = "Static"
+  sku                 = "Standard"
+  domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(var.public_ip_names[count.index], "/[[:^alnum:]]/", "")), random_string.dns[count.index].result)
+  public_ip_prefix_id = azurerm_public_ip_prefix.fw.id
 
   tags = var.tags
 }
@@ -537,6 +548,8 @@ resource "azurerm_firewall" "fw" {
   name                = "${var.name}-fw"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
+
+  zones = var.firewall_zones
 
   ip_configuration {
     name                 = var.public_ip_names[0]

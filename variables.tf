@@ -31,9 +31,21 @@ variable "dmz_nsg_rules" {
   default     = []
 }
 
+variable "public_ip_prefix_length" {
+  description = "Specifies the number of bits of the prefix. The value can be set between 24 (256 addresses) and 31 (2 addresses)."
+  type        = number
+  default     = 30
+}
+
 variable "public_ip_names" {
   description = "Public ips is a list of ip names that are connected to the firewall. At least one is required."
   type        = list(string)
+}
+
+variable "firewall_zones" {
+  description = "A collection of availability zones to spread the Firewall over."
+  type        = list(string)
+  default     = null
 }
 
 variable "firewall_application_rules" {
