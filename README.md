@@ -105,6 +105,12 @@ inputs {
 }
 ```
 
+## Diagnostics
+
+Diagnostics settings can be sent to either storage account, event hub or Log Analytics workspace. The variable `diagnostics.destination` is the id of receiver, ie. storage account id, event namespace authorization rule id or log analytics resource id. Depending on what id is it will detect where to send. Unless using event namespace the `eventhub_name` is not required, just set to `null` for storage account and log analytics workspace.
+
+Setting `all` in logs and metrics will send all possible diagnostics to destination. If not using `all` type name of categories to send.
+
 ## DDos protection plan
 
 If `create_ddos_plan` is set it will deploy a [ddos protection plan](https://docs.microsoft.com/en-us/azure/virtual-network/ddos-protection-overview) to offer full protection. Together with Application Gateway WAF activated and threat intelligence in Azure Firewall it will offer full protection.

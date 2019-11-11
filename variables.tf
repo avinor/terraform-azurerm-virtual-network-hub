@@ -14,8 +14,9 @@ variable "address_space" {
   description = "The full address space that is used the virtual network. Requires at least a /24 address space."
 }
 
-variable "log_analytics_workspace_id" {
-  description = "Specifies the ID of a Log Analytics Workspace where Diagnostics Data should be sent."
+variable "diagnostics" {
+  description = "Diagnostic settings for those resources that support it. See README.md for details on configuration."
+  type        = object({ destination = string, eventhub_name = string, logs = list(string), metrics = list(string) })
   default     = null
 }
 
@@ -68,7 +69,7 @@ variable "firewall_nat_rules" {
 
 variable "netwatcher" {
   description = "Properties for creating network watcher. If set it will create Network Watcher resource using standard naming standard."
-  type        = object({ resource_group_location = string })
+  type        = object({ resource_group_location = string, log_analytics_workspace_id = string })
   default     = null
 }
 

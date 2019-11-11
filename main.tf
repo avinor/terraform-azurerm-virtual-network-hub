@@ -57,6 +57,57 @@ locals {
 
   app_allow_rules = [for rule in var.firewall_application_rules : rule if rule.action == "Allow"]
   app_deny_rules  = [for rule in var.firewall_application_rules : rule if rule.action == "Deny"]
+
+  diag_vnet_logs = [
+    "VMProtectionAlerts",
+  ]
+  diag_vnet_metrics = [
+    "AllMetrics",
+  ]
+  diag_nsg_logs = [
+    "NetworkSecurityGroupEvent",
+    "NetworkSecurityGroupRuleCounter",
+  ]
+  diag_pip_logs = [
+    "DDoSProtectionNotifications",
+    "DDoSMitigationFlowLogs",
+    "DDoSMitigationReports",
+  ]
+  diag_pip_metrics = [
+    "AllMetrics",
+  ]
+  diag_fw_logs = [
+    "AzureFirewallApplicationRule",
+    "AzureFirewallNetworkRule",
+  ]
+  diag_fw_metrics = [
+    "AllMetrics",
+  ]
+
+  diag_all_logs = setunion(
+    local.diag_vnet_logs,
+    local.diag_nsg_logs,
+    local.diag_pip_logs,
+    local.diag_fw_logs)
+  diag_all_metrics = setunion(
+    local.diag_vnet_metrics,
+    local.diag_pip_metrics,
+    local.diag_fw_metrics)
+
+  diag_resource_list = var.diagnostics != null ? split("/", var.diagnostics.destination) : []
+  parsed_diag = var.diagnostics != null ? {
+      log_analytics_id   = contains(local.diag_resource_list, "microsoft.operationalinsights") ? var.diagnostics.destination : null
+      storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
+      event_hub_auth_id  = contains(local.diag_resource_list, "Microsoft.EventHub") ? var.diagnostics.destination : null
+      metric             = contains(var.diagnostics.metrics, "all") ? local.diag_all_metrics : var.diagnostics.metrics
+      log                = contains(var.diagnostics.logs, "all") ? local.diag_all_logs : var.diagnostics.logs
+    } : {
+      log_analytics_id   = null
+      storage_account_id = null
+      event_hub_auth_id  = null
+      metric             = []
+      log                = []
+  }
 }
 
 data "azurerm_client_config" "current" {}
@@ -137,24 +188,33 @@ resource "azurerm_role_assignment" "peering" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "vnet" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "vnet-analytics"
-  target_resource_id         = azurerm_virtual_network.vnet.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  count                          = var.diagnostics != null ? 1 : 0
+  name                           = "vnet-diag"
+  target_resource_id             = azurerm_virtual_network.vnet.id
+  log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
+  eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
+  eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
+  storage_account_id             = local.parsed_diag.storage_account_id
 
-  log {
-    category = "VMProtectionAlerts"
+  dynamic "log" {
+    for_each = setintersection(local.parsed_diag.log, local.diag_vnet_logs)
+    content {
+      category = log.value
 
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 
-  metric {
-    category = "AllMetrics"
+  dynamic "metric" {
+    for_each = setintersection(local.parsed_diag.metric, local.diag_vnet_metrics)
+    content {
+      category = metric.value
 
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 }
@@ -309,11 +369,11 @@ resource "azurerm_network_security_group" "mgmt" {
 }
 
 resource "null_resource" "mgmt_logs" {
-  count = var.log_analytics_workspace_id != null ? 1 : 0
+  count = var.netwatcher != null ? 1 : 0
 
   # TODO Use new resource when exists
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 
   depends_on = ["azurerm_network_security_group.mgmt"]
@@ -343,24 +403,22 @@ resource "azurerm_network_security_rule" "mgmt" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mgmt" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "mgmt-nsg-log-analytics"
-  target_resource_id         = azurerm_network_security_group.mgmt.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  count                          = var.diagnostics != null ? 1 : 0
+  name                           = "mgmt-nsg-diag"
+  target_resource_id             = azurerm_network_security_group.mgmt.id
+  log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
+  eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
+  eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
+  storage_account_id             = local.parsed_diag.storage_account_id
 
-  log {
-    category = "NetworkSecurityGroupEvent"
+  dynamic "log" {
+    for_each = setintersection(local.parsed_diag.log, local.diag_nsg_logs)
+    content {
+      category = log.value
 
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  log {
-    category = "NetworkSecurityGroupRuleCounter"
-
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 }
@@ -379,11 +437,11 @@ resource "azurerm_network_security_group" "dmz" {
 }
 
 resource "null_resource" "dmz_logs" {
-  count = var.log_analytics_workspace_id != null ? 1 : 0
+  count = var.netwatcher != null ? 1 : 0
 
   # TODO Use new resource when exists
   provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 
   depends_on = ["azurerm_network_security_group.dmz"]
@@ -413,24 +471,22 @@ resource "azurerm_network_security_rule" "dmz" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "dmz" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "dmz-nsg-log-analytics"
-  target_resource_id         = azurerm_network_security_group.dmz.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  count                          = var.diagnostics != null ? 1 : 0
+  name                           = "dmz-nsg-diag"
+  target_resource_id             = azurerm_network_security_group.dmz.id
+  log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
+  eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
+  eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
+  storage_account_id             = local.parsed_diag.storage_account_id
 
-  log {
-    category = "NetworkSecurityGroupEvent"
+  dynamic "log" {
+    for_each = setintersection(local.parsed_diag.log, local.diag_nsg_logs)
+    content {
+      category = log.value
 
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  log {
-    category = "NetworkSecurityGroupRuleCounter"
-
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 }
@@ -506,40 +562,33 @@ resource "azurerm_public_ip" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  count                      = var.log_analytics_workspace_id != null ? length(var.public_ip_names) : 0
-  name                       = "fw-pip-log-analytics"
-  target_resource_id         = azurerm_public_ip.fw[count.index].id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  count                          = var.diagnostics != null ? length(var.public_ip_names) : 0
+  name                           = "${var.public_ip_names[count.index]}-pip-diag"
+  target_resource_id             = azurerm_public_ip.fw[count.index].id
+  log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
+  eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
+  eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
+  storage_account_id             = local.parsed_diag.storage_account_id
 
-  log {
-    category = "DDoSProtectionNotifications"
+  dynamic "log" {
+    for_each = setintersection(local.parsed_diag.log, local.diag_pip_logs)
+    content {
+      category = log.value
 
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 
-  log {
-    category = "DDoSMitigationFlowLogs"
+  dynamic "metric" {
+    for_each = setintersection(local.parsed_diag.metric, local.diag_pip_metrics)
+    content {
+      category = metric.value
 
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  log {
-    category = "DDoSMitigationReports"
-
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  metric {
-    category = "AllMetrics"
-
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 }
@@ -568,32 +617,33 @@ resource "azurerm_firewall" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw" {
-  count                      = var.log_analytics_workspace_id != null ? 1 : 0
-  name                       = "fw-log-analytics"
-  target_resource_id         = azurerm_firewall.fw.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  count                          = var.diagnostics != null ? length(var.public_ip_names) : 0
+  name                           = "fw-diag"
+  target_resource_id             = azurerm_firewall.fw.id
+  log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
+  eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
+  eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
+  storage_account_id             = local.parsed_diag.storage_account_id
 
-  log {
-    category = "AzureFirewallApplicationRule"
+  dynamic "log" {
+    for_each = setintersection(local.parsed_diag.log, local.diag_fw_logs)
+    content {
+      category = log.value
 
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 
-  log {
-    category = "AzureFirewallNetworkRule"
+  dynamic "metric" {
+    for_each = setintersection(local.parsed_diag.metric, local.diag_fw_metrics)
+    content {
+      category = metric.value
 
-    retention_policy {
-      enabled = false
-    }
-  }
-
-  metric {
-    category = "AllMetrics"
-
-    retention_policy {
-      enabled = false
+      retention_policy {
+        enabled = false
+      }
     }
   }
 }
