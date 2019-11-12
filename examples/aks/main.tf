@@ -5,7 +5,13 @@ module "hub" {
     resource_group_name = "networking-hub-rg"
     location = "westeurope"
     address_space = "10.0.0.0/24"
-    log_analytics_workspace_id = "/subscription/xxxx-xxxx/.../resource_id"
+    
+    diagnostics = {
+        destination = "/subscription/xxxx-xxxx/.../resource_id"
+        eventhub_name = null
+        logs = ["all"]
+        metrics = ["all"]
+    }
 
     public_ip_names = [
         "fw-public"
