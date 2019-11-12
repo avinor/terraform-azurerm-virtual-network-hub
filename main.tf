@@ -49,21 +49,22 @@ locals {
     for nsg in var.dmz_nsg_rules : merge(local.default_nsg_rule, nsg)
   ])
 
-  nat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {
-    idx: idx,
-    rule: rule,
-  }}
+  nat_rules = { for idx, rule in var.firewall_nat_rules : rule.name => {
+    idx : idx,
+    rule : rule,
+  } }
 
-  # dnat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {idx: idx, rule: rule} if rule.action == "Dnat"}
-  # snat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {idx: idx, rule: rule} if rule.action == "Snat"}
+  network_rules = { for idx, rule in var.firewall_network_rules : rule.name => {
+    idx : idx,
+    rule : rule,
+  } }
 
-  net_allow_rules = [for rule in var.firewall_network_rules : rule if rule.action == "Allow"]
-  net_deny_rules  = [for rule in var.firewall_network_rules : rule if rule.action == "Deny"]
+  application_rules = { for idx, rule in var.firewall_application_rules : rule.name => {
+    idx : idx,
+    rule : rule,
+  } }
 
-  app_allow_rules = [for rule in var.firewall_application_rules : rule if rule.action == "Allow"]
-  app_deny_rules  = [for rule in var.firewall_application_rules : rule if rule.action == "Deny"]
-
-  public_ip_map = {for pip in var.public_ip_names : pip => true}
+  public_ip_map = { for pip in var.public_ip_names : pip => true }
 
   diag_vnet_logs = [
     "VMProtectionAlerts",
@@ -95,25 +96,25 @@ locals {
     local.diag_vnet_logs,
     local.diag_nsg_logs,
     local.diag_pip_logs,
-    local.diag_fw_logs)
+  local.diag_fw_logs)
   diag_all_metrics = setunion(
     local.diag_vnet_metrics,
     local.diag_pip_metrics,
-    local.diag_fw_metrics)
+  local.diag_fw_metrics)
 
   diag_resource_list = var.diagnostics != null ? split("/", var.diagnostics.destination) : []
   parsed_diag = var.diagnostics != null ? {
-      log_analytics_id   = contains(local.diag_resource_list, "microsoft.operationalinsights") ? var.diagnostics.destination : null
-      storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
-      event_hub_auth_id  = contains(local.diag_resource_list, "Microsoft.EventHub") ? var.diagnostics.destination : null
-      metric             = contains(var.diagnostics.metrics, "all") ? local.diag_all_metrics : var.diagnostics.metrics
-      log                = contains(var.diagnostics.logs, "all") ? local.diag_all_logs : var.diagnostics.logs
+    log_analytics_id   = contains(local.diag_resource_list, "microsoft.operationalinsights") ? var.diagnostics.destination : null
+    storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
+    event_hub_auth_id  = contains(local.diag_resource_list, "Microsoft.EventHub") ? var.diagnostics.destination : null
+    metric             = contains(var.diagnostics.metrics, "all") ? local.diag_all_metrics : var.diagnostics.metrics
+    log                = contains(var.diagnostics.logs, "all") ? local.diag_all_logs : var.diagnostics.logs
     } : {
-      log_analytics_id   = null
-      storage_account_id = null
-      event_hub_auth_id  = null
-      metric             = []
-      log                = []
+    log_analytics_id   = null
+    storage_account_id = null
+    event_hub_auth_id  = null
+    metric             = []
+    log                = []
   }
 }
 
@@ -548,15 +549,15 @@ resource "azurerm_public_ip_prefix" "fw" {
 }
 
 resource "random_string" "dns" {
-  for_each  =  local.public_ip_map
-  
+  for_each = local.public_ip_map
+
   length  = 6
   special = false
   upper   = false
 }
 
 resource "azurerm_public_ip" "fw" {
-  for_each  =  local.public_ip_map
+  for_each = local.public_ip_map
 
   name                = "${var.name}-fw-${each.key}-pip"
   location            = azurerm_resource_group.vnet.location
@@ -571,8 +572,8 @@ resource "azurerm_public_ip" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  for_each  =  local.public_ip_map
-  
+  for_each = local.public_ip_map
+
   name                           = "${each.key}-pip-diag"
   target_resource_id             = azurerm_public_ip.fw[each.key].id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
@@ -658,83 +659,48 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
   }
 }
 
-resource "azurerm_firewall_application_rule_collection" "allow" {
-  count               = length(local.app_allow_rules)
-  name                = local.app_allow_rules[count.index].name
+resource "azurerm_firewall_application_rule_collection" "fw" {
+  for_each = local.application_rules
+
+  name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (count.index + 1)
-  action              = "Allow"
+  priority            = 100 * (each.value.idx + 1)
+  action              = each.value.rule.action
 
   rule {
-    name             = local.app_allow_rules[count.index].name
-    source_addresses = local.app_allow_rules[count.index].source_addresses
-    target_fqdns     = local.app_allow_rules[count.index].target_fqdns
+    name             = each.key
+    source_addresses = each.value.rule.source_addresses
+    target_fqdns     = each.value.rule.target_fqdns
 
     protocol {
-      type = local.app_allow_rules[count.index].protocol.type
-      port = local.app_allow_rules[count.index].protocol.port
+      type = each.value.rule.protocol.type
+      port = each.value.rule.protocol.port
     }
   }
 }
 
-resource "azurerm_firewall_application_rule_collection" "deny" {
-  count               = length(local.app_deny_rules)
-  name                = local.app_deny_rules[count.index].name
+resource "azurerm_firewall_network_rule_collection" "fw" {
+  for_each = local.network_rules
+
+  name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 10000 + 100 * count.index
-  action              = "Deny"
+  priority            = 100 * (each.value.idx + 1)
+  action              = each.value.rule.action
 
   rule {
-    name             = local.app_deny_rules[count.index].name
-    source_addresses = local.app_deny_rules[count.index].source_addresses
-    target_fqdns     = local.app_deny_rules[count.index].target_fqdns
-
-    protocol {
-      type = local.app_deny_rules[count.index].protocol.type
-      port = local.app_deny_rules[count.index].protocol.port
-    }
-  }
-}
-
-resource "azurerm_firewall_network_rule_collection" "allow" {
-  count               = length(local.net_allow_rules)
-  name                = local.net_allow_rules[count.index].name
-  azure_firewall_name = azurerm_firewall.fw.name
-  resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (count.index + 1)
-  action              = "Allow"
-
-  rule {
-    name                  = local.net_allow_rules[count.index].name
-    source_addresses      = local.net_allow_rules[count.index].source_addresses
-    destination_ports     = local.net_allow_rules[count.index].destination_ports
-    destination_addresses = local.net_allow_rules[count.index].destination_addresses
-    protocols             = local.net_allow_rules[count.index].protocols
-  }
-}
-
-resource "azurerm_firewall_network_rule_collection" "deny" {
-  count               = length(local.net_deny_rules)
-  name                = local.net_deny_rules[count.index].name
-  azure_firewall_name = azurerm_firewall.fw.name
-  resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 10000 + 100 * count.index
-  action              = "Deny"
-
-  rule {
-    name                  = local.net_deny_rules[count.index].name
-    source_addresses      = local.net_deny_rules[count.index].source_addresses
-    destination_ports     = local.net_deny_rules[count.index].destination_ports
-    destination_addresses = local.net_deny_rules[count.index].destination_addresses
-    protocols             = local.net_deny_rules[count.index].protocols
+    name                  = each.key
+    source_addresses      = each.value.rule.source_addresses
+    destination_ports     = each.value.rule.destination_ports
+    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
+    protocols             = each.value.rule.protocols
   }
 }
 
 resource "azurerm_firewall_nat_rule_collection" "fw" {
   for_each = local.nat_rules
-  
+
   name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
@@ -751,23 +717,3 @@ resource "azurerm_firewall_nat_rule_collection" "fw" {
     translated_port       = each.value.rule.translated_port
   }
 }
-
-# resource "azurerm_firewall_nat_rule_collection" "snat" {
-#   for_each = local.snat_rules
-  
-#   name                = each.key
-#   azure_firewall_name = azurerm_firewall.fw.name
-#   resource_group_name = azurerm_resource_group.vnet.name
-#   priority            = 10000 + 100 * each.value.idx
-#   action              = "Snat"
-
-#   rule {
-#     name                  = each.key
-#     source_addresses      = each.value.rule.source_addresses
-#     destination_ports     = each.value.rule.destination_ports
-#     destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
-#     protocols             = each.value.rule.protocols
-#     translated_address    = each.value.rule.translated_address
-#     translated_port       = each.value.rule.translated_port
-#   }
-# }
