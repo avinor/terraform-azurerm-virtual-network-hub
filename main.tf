@@ -49,14 +49,21 @@ locals {
     for nsg in var.dmz_nsg_rules : merge(local.default_nsg_rule, nsg)
   ])
 
-  dnat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Dnat"]
-  snat_rules = [for rule in var.firewall_nat_rules : rule if rule.action == "Snat"]
+  nat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {
+    idx: idx,
+    rule: rule,
+  }}
+
+  # dnat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {idx: idx, rule: rule} if rule.action == "Dnat"}
+  # snat_rules = {for idx, rule in var.firewall_nat_rules : rule.name => {idx: idx, rule: rule} if rule.action == "Snat"}
 
   net_allow_rules = [for rule in var.firewall_network_rules : rule if rule.action == "Allow"]
   net_deny_rules  = [for rule in var.firewall_network_rules : rule if rule.action == "Deny"]
 
   app_allow_rules = [for rule in var.firewall_application_rules : rule if rule.action == "Allow"]
   app_deny_rules  = [for rule in var.firewall_application_rules : rule if rule.action == "Deny"]
+
+  public_ip_map = {for pip in var.public_ip_names : pip => true}
 
   diag_vnet_logs = [
     "VMProtectionAlerts",
@@ -541,30 +548,33 @@ resource "azurerm_public_ip_prefix" "fw" {
 }
 
 resource "random_string" "dns" {
-  count   = length(var.public_ip_names)
+  for_each  =  local.public_ip_map
+  
   length  = 6
   special = false
   upper   = false
 }
 
 resource "azurerm_public_ip" "fw" {
-  count               = length(var.public_ip_names)
-  name                = "${var.name}-fw-${var.public_ip_names[count.index]}-pip"
+  for_each  =  local.public_ip_map
+
+  name                = "${var.name}-fw-${each.key}-pip"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
 
   allocation_method   = "Static"
   sku                 = "Standard"
-  domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(var.public_ip_names[count.index], "/[[:^alnum:]]/", "")), random_string.dns[count.index].result)
+  domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(each.key, "/[[:^alnum:]]/", "")), random_string.dns[each.key].result)
   public_ip_prefix_id = azurerm_public_ip_prefix.fw.id
 
   tags = var.tags
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  count                          = var.diagnostics != null ? length(var.public_ip_names) : 0
-  name                           = "${var.public_ip_names[count.index]}-pip-diag"
-  target_resource_id             = azurerm_public_ip.fw[count.index].id
+  for_each  =  local.public_ip_map
+  
+  name                           = "${each.key}-pip-diag"
+  target_resource_id             = azurerm_public_ip.fw[each.key].id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
   eventhub_authorization_rule_id = local.parsed_diag.event_hub_auth_id
   eventhub_name                  = local.parsed_diag.event_hub_auth_id != null ? var.diagnostics.eventhub_name : null
@@ -603,7 +613,7 @@ resource "azurerm_firewall" "fw" {
   ip_configuration {
     name                 = var.public_ip_names[0]
     subnet_id            = azurerm_subnet.firewall.id
-    public_ip_address_id = azurerm_public_ip.fw[0].id
+    public_ip_address_id = azurerm_public_ip.fw[var.public_ip_names[0]].id
   }
 
   # Avoid changes when adding more public ips manually to firewall
@@ -722,40 +732,42 @@ resource "azurerm_firewall_network_rule_collection" "deny" {
   }
 }
 
-resource "azurerm_firewall_nat_rule_collection" "dnat" {
-  count               = length(local.dnat_rules)
-  name                = local.dnat_rules[count.index].name
+resource "azurerm_firewall_nat_rule_collection" "fw" {
+  for_each = local.nat_rules
+  
+  name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (count.index + 1)
-  action              = "Dnat"
+  priority            = 100 * (each.value.idx + 1)
+  action              = each.value.rule.action
 
   rule {
-    name                  = local.dnat_rules[count.index].name
-    source_addresses      = local.dnat_rules[count.index].source_addresses
-    destination_ports     = local.dnat_rules[count.index].destination_ports
-    destination_addresses = [for dest in local.dnat_rules[count.index].destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
-    protocols             = local.dnat_rules[count.index].protocols
-    translated_address    = local.dnat_rules[count.index].translated_address
-    translated_port       = local.dnat_rules[count.index].translated_port
+    name                  = each.key
+    source_addresses      = each.value.rule.source_addresses
+    destination_ports     = each.value.rule.destination_ports
+    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
+    protocols             = each.value.rule.protocols
+    translated_address    = each.value.rule.translated_address
+    translated_port       = each.value.rule.translated_port
   }
 }
 
-resource "azurerm_firewall_nat_rule_collection" "snat" {
-  count               = length(local.snat_rules)
-  name                = local.snat_rules[count.index].name
-  azure_firewall_name = azurerm_firewall.fw.name
-  resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 10000 + 100 * count.index
-  action              = "Snat"
+# resource "azurerm_firewall_nat_rule_collection" "snat" {
+#   for_each = local.snat_rules
+  
+#   name                = each.key
+#   azure_firewall_name = azurerm_firewall.fw.name
+#   resource_group_name = azurerm_resource_group.vnet.name
+#   priority            = 10000 + 100 * each.value.idx
+#   action              = "Snat"
 
-  rule {
-    name                  = local.snat_rules[count.index].name
-    source_addresses      = local.snat_rules[count.index].source_addresses
-    destination_ports     = local.snat_rules[count.index].destination_ports
-    destination_addresses = [for dest in local.snat_rules[count.index].destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[index(var.public_ip_names, dest)].ip_address : dest]
-    protocols             = local.snat_rules[count.index].protocols
-    translated_address    = local.snat_rules[count.index].translated_address
-    translated_port       = local.snat_rules[count.index].translated_port
-  }
-}
+#   rule {
+#     name                  = each.key
+#     source_addresses      = each.value.rule.source_addresses
+#     destination_ports     = each.value.rule.destination_ports
+#     destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
+#     protocols             = each.value.rule.protocols
+#     translated_address    = each.value.rule.translated_address
+#     translated_port       = each.value.rule.translated_port
+#   }
+# }
