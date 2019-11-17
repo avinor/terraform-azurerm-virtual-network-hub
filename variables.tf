@@ -20,6 +20,20 @@ variable "diagnostics" {
   default     = null
 }
 
+variable "service_endpoints" {
+  description = "Service endpoints to add to the firewall subnet."
+  type        = list(string)
+  default = [
+    "Microsoft.AzureActiveDirectory",
+    "Microsoft.AzureCosmosDB",
+    "Microsoft.EventHub",
+    "Microsoft.KeyVault",
+    "Microsoft.ServiceBus",
+    "Microsoft.Sql",
+    "Microsoft.Storage",
+  ]
+}
+
 variable "management_nsg_rules" {
   description = "Network security rules to add to management subnet. See README for details on how to setup."
   type        = list(any)

@@ -233,15 +233,7 @@ resource "azurerm_subnet" "firewall" {
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefix       = cidrsubnet(var.address_space, 2, 0)
 
-  service_endpoints = [
-    "Microsoft.AzureActiveDirectory",
-    "Microsoft.AzureCosmosDB",
-    "Microsoft.EventHub",
-    "Microsoft.KeyVault",
-    "Microsoft.ServiceBus",
-    "Microsoft.Sql",
-    "Microsoft.Storage",
-  ]
+  service_endpoints = var.service_endpoints
 
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released

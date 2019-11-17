@@ -1,16 +1,16 @@
 output "vnet_id" {
   description = "Virtual network id."
-  value = azurerm_virtual_network.vnet.id
+  value       = azurerm_virtual_network.vnet.id
 }
 
 output "vnet_resource_group_name" {
   description = "Virtual network resource group name."
-  value = var.resource_group_name
+  value       = var.resource_group_name
 }
 
 output "vnet_name" {
   description = "Virtual network name."
-  value = azurerm_virtual_network.vnet.name
+  value       = azurerm_virtual_network.vnet.name
 }
 
 output "subnets" {
@@ -25,7 +25,7 @@ output "subnets" {
 
 output "firewall_private_ip" {
   description = "Private ip of firewall."
-  value = azurerm_firewall.fw.ip_configuration.0.private_ip_address
+  value       = azurerm_firewall.fw.ip_configuration.0.private_ip_address
 }
 
 output "private_dns" {
@@ -38,5 +38,5 @@ output "private_dns" {
 
 output "public_ip_prefix" {
   description = "Public ip prefix of firewall."
-  value = azurerm_public_ip_prefix.fw.ip_prefix
+  value       = azurerm_public_ip_prefix.fw.ip_prefix
 }
