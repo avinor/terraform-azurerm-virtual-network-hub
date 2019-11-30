@@ -1,7 +1,7 @@
 terraform {
-  required_version = ">= 0.12.0"
+  required_version = ">= 0.12.6"
   required_providers {
-    azurerm = "~> 1.36.0"
+    azurerm = "~> 1.37.0"
   }
 }
 
@@ -603,10 +603,14 @@ resource "azurerm_firewall" "fw" {
 
   zones = var.firewall_zones
 
-  ip_configuration {
-    name                 = var.public_ip_names[0]
-    subnet_id            = azurerm_subnet.firewall.id
-    public_ip_address_id = azurerm_public_ip.fw[var.public_ip_names[0]].id
+  dynamic "ip_configuration" {
+    for_each = local.public_ip_map
+    iterator = ip
+    content {
+      name                 = ip.key
+      subnet_id            = ip.key == var.public_ip_names[0] ? azurerm_subnet.firewall.id : null
+      public_ip_address_id = azurerm_public_ip.fw[ip.key].id
+    }
   }
 
   # Avoid changes when adding more public ips manually to firewall
