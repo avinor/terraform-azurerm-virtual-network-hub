@@ -238,8 +238,8 @@ resource "azurerm_subnet" "firewall" {
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released
     ignore_changes = [
-      "route_table_id",
-      "network_security_group_id",
+      route_table_id,
+      network_security_group_id,
     ]
   }
 }
@@ -257,8 +257,8 @@ resource "azurerm_subnet" "gateway" {
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released
     ignore_changes = [
-      "route_table_id",
-      "network_security_group_id",
+      route_table_id,
+      network_security_group_id,
     ]
   }
 }
@@ -276,8 +276,8 @@ resource "azurerm_subnet" "mgmt" {
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released
     ignore_changes = [
-      "route_table_id",
-      "network_security_group_id",
+      route_table_id,
+      network_security_group_id,
     ]
   }
 }
@@ -295,8 +295,8 @@ resource "azurerm_subnet" "dmz" {
   lifecycle {
     # TODO Remove this when azurerm 2.0 provider is released
     ignore_changes = [
-      "route_table_id",
-      "network_security_group_id",
+      route_table_id,
+      network_security_group_id,
     ]
   }
 }
@@ -376,7 +376,7 @@ resource "null_resource" "mgmt_logs" {
     command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 
-  depends_on = ["azurerm_network_security_group.mgmt"]
+  depends_on = [azurerm_network_security_group.mgmt]
 }
 
 resource "azurerm_network_security_rule" "mgmt" {
@@ -444,7 +444,7 @@ resource "null_resource" "dmz_logs" {
     command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
   }
 
-  depends_on = ["azurerm_network_security_group.dmz"]
+  depends_on = [azurerm_network_security_group.dmz]
 }
 
 resource "azurerm_network_security_rule" "dmz" {
@@ -616,7 +616,7 @@ resource "azurerm_firewall" "fw" {
   # Avoid changes when adding more public ips manually to firewall
   lifecycle {
     ignore_changes = [
-      "ip_configuration",
+      ip_configuration,
     ]
   }
 
