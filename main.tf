@@ -210,6 +210,7 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
       category = log.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -221,6 +222,7 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
       category = metric.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -417,6 +419,7 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
       category = log.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -485,6 +488,7 @@ resource "azurerm_monitor_diagnostic_setting" "dmz" {
       category = log.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -579,6 +583,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
       category = log.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -590,6 +595,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
       category = metric.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -638,6 +644,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
       category = log.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
@@ -649,6 +656,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
       category = metric.value
 
       retention_policy {
+        days = 0
         enabled = false
       }
     }
