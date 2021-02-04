@@ -86,6 +86,7 @@ locals {
   ]
   diag_fw_logs = [
     "AzureFirewallApplicationRule",
+    "AzureFirewallDnsProxy",
     "AzureFirewallNetworkRule",
   ]
   diag_fw_metrics = [
