@@ -105,7 +105,7 @@ locals {
 
   diag_resource_list = var.diagnostics != null ? split("/", var.diagnostics.destination) : []
   parsed_diag = var.diagnostics != null ? {
-    log_analytics_id   = contains(local.diag_resource_list, "microsoft.operationalinsights") ? var.diagnostics.destination : null
+    log_analytics_id   = contains(local.diag_resource_list, "Microsoft.OperationalInsights") ? var.diagnostics.destination : null
     storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
     event_hub_auth_id  = contains(local.diag_resource_list, "Microsoft.EventHub") ? var.diagnostics.destination : null
     metric             = contains(var.diagnostics.metrics, "all") ? local.diag_all_metrics : var.diagnostics.metrics
@@ -211,7 +211,7 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
       category = log.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -223,7 +223,7 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
       category = metric.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -420,7 +420,7 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
       category = log.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -489,7 +489,7 @@ resource "azurerm_monitor_diagnostic_setting" "dmz" {
       category = log.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -584,7 +584,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
       category = log.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -596,7 +596,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
       category = metric.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -645,7 +645,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
       category = log.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
@@ -657,7 +657,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
       category = metric.value
 
       retention_policy {
-        days = 0
+        days    = 0
         enabled = false
       }
     }
