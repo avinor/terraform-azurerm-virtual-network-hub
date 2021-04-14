@@ -1,7 +1,19 @@
 terraform {
-  required_version = ">= 0.12.6"
+  required_version = ">= 0.13"
   required_providers {
-    azurerm = "~> 1.44.0"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 1.44.0"
+    }
+    null = {
+      source = "hashicorp/null"
+      version = "~> 3.1.0"
+
+    }
+    random = {
+      source = "hashicorp/random"
+      version = "~> 3.1.0"
+    }
   }
 }
 
@@ -670,8 +682,8 @@ resource "azurerm_firewall_application_rule_collection" "fw" {
   name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (each.value.idx + 1)
-  action              = each.value.rule.action
+  priority = 100 * (each.value.idx + 1
+  ) action = each.value.rule.action
 
   rule {
     name             = each.key
@@ -691,8 +703,8 @@ resource "azurerm_firewall_network_rule_collection" "fw" {
   name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (each.value.idx + 1)
-  action              = each.value.rule.action
+  priority = 100 * (each.value.idx + 1
+  ) action = each.value.rule.action
 
   rule {
     name                  = each.key
@@ -709,8 +721,8 @@ resource "azurerm_firewall_nat_rule_collection" "fw" {
   name                = each.key
   azure_firewall_name = azurerm_firewall.fw.name
   resource_group_name = azurerm_resource_group.vnet.name
-  priority            = 100 * (each.value.idx + 1)
-  action              = each.value.rule.action
+  priority = 100 * (each.value.idx + 1
+  ) action = each.value.rule.action
 
   rule {
     name                  = each.key
