@@ -254,13 +254,6 @@ resource "azurerm_subnet" "firewall" {
 
   service_endpoints = var.service_endpoints
 
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "gateway" {
@@ -283,14 +276,6 @@ resource "azurerm_subnet" "mgmt" {
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "dmz" {
@@ -302,14 +287,6 @@ resource "azurerm_subnet" "dmz" {
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 #
