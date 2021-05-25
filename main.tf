@@ -250,7 +250,7 @@ resource "azurerm_subnet" "firewall" {
   name                 = "AzureFirewallSubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = cidrsubnet(var.address_space, 2, 0)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 0)]
 
   service_endpoints = var.service_endpoints
 
@@ -267,7 +267,7 @@ resource "azurerm_subnet" "gateway" {
   name                 = "GatewaySubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = cidrsubnet(var.address_space, 2, 1)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 1)]
 
   service_endpoints = [
     "Microsoft.Storage",
@@ -278,7 +278,7 @@ resource "azurerm_subnet" "mgmt" {
   name                 = "Management"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = cidrsubnet(var.address_space, 2, 2)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 2)]
 
   service_endpoints = [
     "Microsoft.Storage",
@@ -297,7 +297,7 @@ resource "azurerm_subnet" "dmz" {
   name                 = "DMZ"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefixes     = cidrsubnet(var.address_space, 2, 3)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 3)]
 
   service_endpoints = [
     "Microsoft.Storage",
