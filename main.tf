@@ -1,8 +1,24 @@
 terraform {
-  required_version = ">= 0.12.6"
+  required_version = ">= 0.13"
   required_providers {
-    azurerm = "~> 1.44.0"
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 2.53.0"
+    }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.1.0"
+
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.1.0"
+    }
   }
+}
+
+provider "azurerm" {
+  features {}
 }
 
 locals {
@@ -234,74 +250,43 @@ resource "azurerm_subnet" "firewall" {
   name                 = "AzureFirewallSubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 0)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 0)]
 
   service_endpoints = var.service_endpoints
 
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "gateway" {
   name                 = "GatewaySubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 1)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 1)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "mgmt" {
   name                 = "Management"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 2)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 2)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "dmz" {
   name                 = "DMZ"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 3)
+  address_prefixes     = [cidrsubnet(var.address_space, 2, 3)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 #
@@ -310,7 +295,7 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "1.4.0"
+  version = "3.0.0"
 
   name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
@@ -318,7 +303,9 @@ module "storage" {
 
   enable_advanced_threat_protection = true
 
-  # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service
+  # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service !!
+  # FIXME It should be resolved now 16.04.2021 https://feedback.azure.com/forums/217313/suggestions/33684529
+
   # See https://github.com/MicrosoftDocs/azure-docs/issues/5989
   # network_rules {
   #   ip_rules                   = ["127.0.0.1"]
@@ -711,7 +698,6 @@ resource "azurerm_firewall_nat_rule_collection" "fw" {
   resource_group_name = azurerm_resource_group.vnet.name
   priority            = 100 * (each.value.idx + 1)
   action              = each.value.rule.action
-
   rule {
     name                  = each.key
     source_addresses      = each.value.rule.source_addresses
