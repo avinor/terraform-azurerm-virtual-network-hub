@@ -1,8 +1,12 @@
 terraform {
   required_version = ">= 0.12.6"
   required_providers {
-    azurerm = "~> 1.44.0"
+    azurerm = "~> 2.53.0"
   }
+}
+
+provider "azurerm" {
+  features {}
 }
 
 locals {
@@ -234,74 +238,42 @@ resource "azurerm_subnet" "firewall" {
   name                 = "AzureFirewallSubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 0)
+  address_prefixes       = [cidrsubnet(var.address_space, 2, 0)]
 
   service_endpoints = var.service_endpoints
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "gateway" {
   name                 = "GatewaySubnet"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 1)
+  address_prefixes       = [cidrsubnet(var.address_space, 2, 1)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "mgmt" {
   name                 = "Management"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 2)
+  address_prefixes       = [cidrsubnet(var.address_space, 2, 2)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 resource "azurerm_subnet" "dmz" {
   name                 = "DMZ"
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
-  address_prefix       = cidrsubnet(var.address_space, 2, 3)
+  address_prefixes       = [cidrsubnet(var.address_space, 2, 3)]
 
   service_endpoints = [
     "Microsoft.Storage",
   ]
-
-  lifecycle {
-    # TODO Remove this when azurerm 2.0 provider is released
-    ignore_changes = [
-      route_table_id,
-      network_security_group_id,
-    ]
-  }
 }
 
 #
@@ -310,7 +282,7 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "1.4.0"
+  version = "2.4.0"
 
   name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
