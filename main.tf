@@ -288,7 +288,7 @@ module "storage" {
   resource_group_name = azurerm_resource_group.vnet.name
   location            = azurerm_resource_group.vnet.location
 
-  enable_advanced_threat_protection = true
+  enable_advanced_threat_protection = false
 
   # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service
   # See https://github.com/MicrosoftDocs/azure-docs/issues/5989
