@@ -1,3 +1,9 @@
+variable "enable_advanced_threat_protection" {
+  description = "Boolean flag which controls if advanced threat protection is enabled."
+  type        = bool
+  default     = true
+}
+
 variable "name" {
   description = "Name of hub network."
 }
