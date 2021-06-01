@@ -295,7 +295,7 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "3.0.0"
+  version = "3.0.1"
 
   name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
