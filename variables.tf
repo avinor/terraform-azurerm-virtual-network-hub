@@ -119,5 +119,5 @@ variable "tags" {
 variable "threat_intel_mode" {
   description = "The operation mode for threat intelligence-based filtering. Possible values are: Off, Alert, Deny and \"\"(empty string)."
   type        = string
-  default     = "Alert"
+  default     = "Deny"
 }
