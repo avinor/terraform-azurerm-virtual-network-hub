@@ -594,6 +594,7 @@ resource "azurerm_firewall" "fw" {
   name                = "${var.name}-fw"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
+  threat_intel_mode   = var.threat_intel_mode
 
   zones = var.firewall_zones
 
