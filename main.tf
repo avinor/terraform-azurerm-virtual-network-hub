@@ -619,7 +619,7 @@ resource "azurerm_firewall" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw" {
-  count                          = var.diagnostics != null ? length(var.public_ip_names) : 0
+  count                          = var.diagnostics != null ? 1 : 0
   name                           = "fw-diag"
   target_resource_id             = azurerm_firewall.fw.id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id

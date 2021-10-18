@@ -22,8 +22,13 @@ variable "address_space" {
 
 variable "diagnostics" {
   description = "Diagnostic settings for those resources that support it. See README.md for details on configuration."
-  type        = object({ destination = string, eventhub_name = string, logs = list(string), metrics = list(string) })
-  default     = null
+  type = object({
+    destination   = string
+    eventhub_name = string
+    logs          = list(string)
+    metrics       = list(string)
+  })
+  default = null
 }
 
 variable "service_endpoints" {
@@ -71,26 +76,54 @@ variable "firewall_zones" {
 
 variable "firewall_application_rules" {
   description = "List of application rules to apply to firewall."
-  type        = list(object({ name = string, action = string, source_addresses = list(string), target_fqdns = list(string), protocol = object({ type = string, port = string }) }))
-  default     = []
+  type = list(object({
+    name             = string
+    action           = string
+    source_addresses = list(string)
+    target_fqdns     = list(string)
+    protocol = object({
+      type = string
+      port = string
+    })
+  }))
+  default = []
 }
 
 variable "firewall_network_rules" {
   description = "List of network rules to apply to firewall."
-  type        = list(object({ name = string, action = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string) }))
-  default     = []
+  type = list(object({
+    name                  = string
+    action                = string
+    source_addresses      = list(string)
+    destination_ports     = list(string)
+    destination_addresses = list(string)
+    protocols             = list(string)
+  }))
+  default = []
 }
 
 variable "firewall_nat_rules" {
   description = "List of nat rules to apply to firewall."
-  type        = list(object({ name = string, action = string, source_addresses = list(string), destination_ports = list(string), destination_addresses = list(string), protocols = list(string), translated_address = string, translated_port = string }))
-  default     = []
+  type = list(object({
+    name                  = string
+    action                = string
+    source_addresses      = list(string)
+    destination_ports     = list(string)
+    destination_addresses = list(string)
+    protocols             = list(string)
+    translated_address    = string
+    translated_port       = string
+  }))
+  default = []
 }
 
 variable "netwatcher" {
   description = "Properties for creating network watcher. If set it will create Network Watcher resource using standard naming standard."
-  type        = object({ resource_group_location = string, log_analytics_workspace_id = string })
-  default     = null
+  type = object({
+    resource_group_location    = string
+    log_analytics_workspace_id = string
+  })
+  default = null
 }
 
 variable "peering_assignment" {
