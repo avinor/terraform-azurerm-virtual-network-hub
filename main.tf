@@ -3,7 +3,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 2.56.0"
+      version = "~> 3.11.0"
     }
     null = {
       source  = "hashicorp/null"
@@ -270,7 +270,7 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "3.0.1"
+  version = "3.4.0"
 
   name                = var.name
   resource_group_name = azurerm_resource_group.vnet.name
@@ -599,8 +599,9 @@ resource "azurerm_firewall" "fw" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
   threat_intel_mode   = var.threat_intel_mode
-
-  zones = var.firewall_zones
+  zones               = var.firewall_zones
+  sku_name            = "AZFW_VNet"
+  sku_tier            = "Standard"
 
   dynamic "ip_configuration" {
     for_each = local.public_ip_map
