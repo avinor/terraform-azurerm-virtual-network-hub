@@ -519,6 +519,7 @@ resource "azurerm_public_ip_prefix" "fw" {
   resource_group_name = azurerm_resource_group.vnet.name
 
   prefix_length = var.public_ip_prefix_length
+  zones = var.firewall_zones
 
   tags = var.tags
 }
@@ -542,6 +543,7 @@ resource "azurerm_public_ip" "fw" {
   sku                 = "Standard"
   domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(each.key, "/[[:^alnum:]]/", "")), random_string.dns[each.key].result)
   public_ip_prefix_id = azurerm_public_ip_prefix.fw.id
+  zones = var.firewall_zones
 
   tags = var.tags
 }
