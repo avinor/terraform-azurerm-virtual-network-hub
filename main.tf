@@ -556,7 +556,7 @@ data "azurerm_monitor_diagnostic_categories" "fw_pip" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  for_each = local.public_ip_map
+  for_each = var.diagnostics != null ? local.public_ip_map : {}
 
   name                           = "${each.key}-pip-diag"
   target_resource_id             = azurerm_public_ip.fw[each.key].id
