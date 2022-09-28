@@ -143,6 +143,12 @@ variable "private_dns_zone" {
   default     = null
 }
 
+variable "storage_account_resource_group_create" {
+  description = "Property for supporting terraform state created by older version of this module. NEVER set set this to true for new installations!"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to all resources created."
   type        = map(string)

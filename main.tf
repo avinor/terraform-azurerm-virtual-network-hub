@@ -274,7 +274,7 @@ module "storage" {
 
   name                  = var.name
   resource_group_name   = azurerm_resource_group.vnet.name
-  resource_group_create = false
+  resource_group_create = var.storage_account_resource_group_create
   location              = azurerm_resource_group.vnet.location
 
   enable_advanced_threat_protection = var.enable_advanced_threat_protection
