@@ -334,15 +334,31 @@ resource "azurerm_network_security_group" "mgmt" {
   tags = var.tags
 }
 
-resource "null_resource" "mgmt_logs" {
+resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  # TODO Use new resource when exists
-  provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+  network_watcher_name = azurerm_network_watcher.netwatcher.0.name
+  resource_group_name  = azurerm_resource_group.vnet.name
+  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
+
+  network_security_group_id = azurerm_network_security_group.mgmt.id
+  storage_account_id        = module.storage.id
+  enabled                   = true
+  version                   = 2
+
+  traffic_analytics {
+    enabled               = true
+    workspace_id          = var.netwatcher.log_analytics_workspace_id
+    workspace_region      = azurerm_resource_group.netwatcher.0.location
+    workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
-  depends_on = [azurerm_network_security_group.mgmt]
+  retention_policy {
+    days    = 0
+    enabled = false
+  }
+
+  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "mgmt" {
@@ -411,15 +427,31 @@ resource "azurerm_network_security_group" "dmz" {
   tags = var.tags
 }
 
-resource "null_resource" "dmz_logs" {
+resource "azurerm_network_watcher_flow_log" "dmz_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  # TODO Use new resource when exists
-  provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+  network_watcher_name = azurerm_network_watcher.netwatcher.0.name
+  resource_group_name  = azurerm_resource_group.vnet.name
+  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
+
+  network_security_group_id = azurerm_network_security_group.dmz.id
+  storage_account_id        = module.storage.id
+  enabled                   = true
+  version                   = 2
+
+  traffic_analytics {
+    enabled               = true
+    workspace_id          = var.netwatcher.log_analytics_workspace_id
+    workspace_region      = azurerm_resource_group.netwatcher.0.location
+    workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
-  depends_on = [azurerm_network_security_group.dmz]
+  retention_policy {
+    days    = 0
+    enabled = false
+  }
+
+  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "dmz" {

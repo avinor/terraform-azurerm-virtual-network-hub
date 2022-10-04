@@ -122,6 +122,7 @@ variable "netwatcher" {
   type = object({
     resource_group_location    = string
     log_analytics_workspace_id = string
+    log_analytics_resource_id  = string
   })
   default = null
 }
