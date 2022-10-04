@@ -122,6 +122,7 @@ variable "netwatcher" {
   type = object({
     resource_group_location    = string
     log_analytics_workspace_id = string
+    log_analytics_resource_id  = string
   })
   default = null
 }
@@ -141,6 +142,12 @@ variable "create_ddos_plan" {
 variable "private_dns_zone" {
   description = "Name of private dns zone to create and associate with virtual network."
   default     = null
+}
+
+variable "storage_account_resource_group_create" {
+  description = "Property for supporting terraform state created by older version of this module. NEVER set set this to true for new installations!"
+  type        = bool
+  default     = false
 }
 
 variable "tags" {

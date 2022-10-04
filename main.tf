@@ -3,16 +3,16 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 2.56.0"
+      version = "~> 3.23.0"
     }
     null = {
       source  = "hashicorp/null"
-      version = "~> 3.1.0"
+      version = "~> 3.1.1"
 
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.1.0"
+      version = "~> 3.4.3"
     }
   }
 }
@@ -192,7 +192,7 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
   dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.vnet.logs
+    for_each = data.azurerm_monitor_diagnostic_categories.vnet.log_category_types
     content {
       category = log.value
       enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
@@ -270,11 +270,12 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "3.0.1"
+  version = "3.5.2"
 
-  name                = var.name
-  resource_group_name = azurerm_resource_group.vnet.name
-  location            = azurerm_resource_group.vnet.location
+  name                  = var.name
+  resource_group_name   = azurerm_resource_group.vnet.name
+  resource_group_create = var.storage_account_resource_group_create
+  location              = azurerm_resource_group.vnet.location
 
   enable_advanced_threat_protection = var.enable_advanced_threat_protection
 
@@ -333,15 +334,31 @@ resource "azurerm_network_security_group" "mgmt" {
   tags = var.tags
 }
 
-resource "null_resource" "mgmt_logs" {
+resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  # TODO Use new resource when exists
-  provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.mgmt.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name  = azurerm_resource_group.netwatcher[0].name
+  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
+
+  network_security_group_id = azurerm_network_security_group.mgmt.id
+  storage_account_id        = module.storage.id
+  enabled                   = true
+  version                   = 2
+
+  traffic_analytics {
+    enabled               = true
+    workspace_id          = var.netwatcher.log_analytics_workspace_id
+    workspace_region      = azurerm_resource_group.netwatcher[0].location
+    workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
-  depends_on = [azurerm_network_security_group.mgmt]
+  retention_policy {
+    days    = 0
+    enabled = false
+  }
+
+  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "mgmt" {
@@ -384,7 +401,7 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
   dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.mgmt.logs
+    for_each = data.azurerm_monitor_diagnostic_categories.mgmt.log_category_types
     content {
       category = log.value
       enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
@@ -410,15 +427,31 @@ resource "azurerm_network_security_group" "dmz" {
   tags = var.tags
 }
 
-resource "null_resource" "dmz_logs" {
+resource "azurerm_network_watcher_flow_log" "dmz_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  # TODO Use new resource when exists
-  provisioner "local-exec" {
-    command = "az network watcher flow-log configure -g ${azurerm_resource_group.vnet.name} --enabled true --log-version 2 --nsg ${azurerm_network_security_group.dmz.name} --storage-account ${module.storage.id} --traffic-analytics true --workspace ${var.netwatcher.log_analytics_workspace_id} --subscription ${data.azurerm_client_config.current.subscription_id}"
+  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name  = azurerm_resource_group.netwatcher[0].name
+  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
+
+  network_security_group_id = azurerm_network_security_group.dmz.id
+  storage_account_id        = module.storage.id
+  enabled                   = true
+  version                   = 2
+
+  traffic_analytics {
+    enabled               = true
+    workspace_id          = var.netwatcher.log_analytics_workspace_id
+    workspace_region      = azurerm_resource_group.netwatcher[0].location
+    workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
-  depends_on = [azurerm_network_security_group.dmz]
+  retention_policy {
+    days    = 0
+    enabled = false
+  }
+
+  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "dmz" {
@@ -461,7 +494,7 @@ resource "azurerm_monitor_diagnostic_setting" "dmz" {
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
   dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.dmz.logs
+    for_each = data.azurerm_monitor_diagnostic_categories.dmz.log_category_types
     content {
       category = log.value
       enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
@@ -519,6 +552,7 @@ resource "azurerm_public_ip_prefix" "fw" {
   resource_group_name = azurerm_resource_group.vnet.name
 
   prefix_length = var.public_ip_prefix_length
+  zones         = var.firewall_zones
 
   tags = var.tags
 }
@@ -542,6 +576,7 @@ resource "azurerm_public_ip" "fw" {
   sku                 = "Standard"
   domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(each.key, "/[[:^alnum:]]/", "")), random_string.dns[each.key].result)
   public_ip_prefix_id = azurerm_public_ip_prefix.fw.id
+  zones               = var.firewall_zones
 
   tags = var.tags
 }
@@ -553,7 +588,7 @@ data "azurerm_monitor_diagnostic_categories" "fw_pip" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
-  for_each = local.public_ip_map
+  for_each = var.diagnostics != null ? local.public_ip_map : {}
 
   name                           = "${each.key}-pip-diag"
   target_resource_id             = azurerm_public_ip.fw[each.key].id
@@ -599,8 +634,9 @@ resource "azurerm_firewall" "fw" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
   threat_intel_mode   = var.threat_intel_mode
-
-  zones = var.firewall_zones
+  zones               = var.firewall_zones
+  sku_name            = "AZFW_VNet"
+  sku_tier            = "Standard"
 
   dynamic "ip_configuration" {
     for_each = local.public_ip_map
@@ -639,7 +675,7 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
   dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.fw.logs
+    for_each = data.azurerm_monitor_diagnostic_categories.fw.log_category_types
     content {
       category = log.value
       enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
