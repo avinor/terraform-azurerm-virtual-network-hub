@@ -337,8 +337,8 @@ resource "azurerm_network_security_group" "mgmt" {
 resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  network_watcher_name = azurerm_network_watcher.netwatcher.0.name
-  resource_group_name  = azurerm_resource_group.vnet.name
+  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name  = azurerm_resource_group.netwatcher[0].name
   name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
 
   network_security_group_id = azurerm_network_security_group.mgmt.id
@@ -349,7 +349,7 @@ resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
   traffic_analytics {
     enabled               = true
     workspace_id          = var.netwatcher.log_analytics_workspace_id
-    workspace_region      = azurerm_resource_group.netwatcher.0.location
+    workspace_region      = azurerm_resource_group.netwatcher[0].location
     workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
@@ -430,8 +430,8 @@ resource "azurerm_network_security_group" "dmz" {
 resource "azurerm_network_watcher_flow_log" "dmz_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  network_watcher_name = azurerm_network_watcher.netwatcher.0.name
-  resource_group_name  = azurerm_resource_group.vnet.name
+  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name  = azurerm_resource_group.netwatcher[0].name
   name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
 
   network_security_group_id = azurerm_network_security_group.dmz.id
@@ -442,7 +442,7 @@ resource "azurerm_network_watcher_flow_log" "dmz_logs" {
   traffic_analytics {
     enabled               = true
     workspace_id          = var.netwatcher.log_analytics_workspace_id
-    workspace_region      = azurerm_resource_group.netwatcher.0.location
+    workspace_region      = azurerm_resource_group.netwatcher[0].location
     workspace_resource_id = var.netwatcher.log_analytics_resource_id
   }
 
