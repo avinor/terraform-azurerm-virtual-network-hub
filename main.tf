@@ -432,7 +432,7 @@ resource "azurerm_network_watcher_flow_log" "dmz_logs" {
 
   network_watcher_name = azurerm_network_watcher.netwatcher[0].name
   resource_group_name  = azurerm_resource_group.netwatcher[0].name
-  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
+  name                 = "${azurerm_resource_group.vnet.name}subnet-dmz-nsg"
 
   network_security_group_id = azurerm_network_security_group.dmz.id
   storage_account_id        = module.storage.id
