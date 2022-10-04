@@ -16,6 +16,20 @@ Source: <https://docs.microsoft.com/en-us/azure/architecture/reference-architect
 
 In diagram hub network is connected to on-premise network, but works just as well with public network.
 
+## NB! Important breaking change when upgrading to v3.0.0
+
+Module versions less than v3.0.0 contains a bug that might have created terraform state that have two addresses pointing
+to the same azure resource group. This is fixed in v3.0.0 and above, but upgrading to v3.0.0 can result in the entire
+resource group for the spoke being deleted. _Carefully_ inspect the terraform plan before applying. As a workaround
+the terraform state can be manually changed. Alternatively the variable `storage_account_resource_group_create` can be
+set to true, this will prevent the resource group from being deleted. This new variable is introduced specifically for
+this case, and has no other usages.
+
+The conflicting addresses in terraform state is:
+
+- module.storage.azurerm_resource_group.storage
+- azurerm_resource_group.vnet
+
 ## Usage
 
 To create a simple hub network with no additional firewall or nsg rules:
@@ -23,7 +37,7 @@ To create a simple hub network with no additional firewall or nsg rules:
 ```terraform
 module "hub" {
   source  = "avinor/virtual-network-hub/azurerm"
-  version = "1.2.0"
+  version = "3.0.0"
 
   resource_group_name = "networking-hub"
   location            = "westeurope"
@@ -36,7 +50,7 @@ For a more complete example with firewall rules and custom nsg rules added to ma
 ```terraform
 module "hub" {
   source  = "avinor/virtual-network-hub/azurerm"
-  version = "2.0.5"
+  version = "3.0.0"
 
   resource_group_name = "networking-hub-rg"
   location            = "westeurope"
