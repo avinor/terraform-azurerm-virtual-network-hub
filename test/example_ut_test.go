@@ -13,6 +13,7 @@ func TestUT_Examples(t *testing.T) {
 		"../examples/simple",
 		"../examples/firewall",
 		"../examples/aks",
+		"../examples/dns",
 	}
 
 	for _, test := range tests {

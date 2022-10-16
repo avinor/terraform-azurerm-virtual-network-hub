@@ -7,10 +7,9 @@ module "hub" {
   address_space       = "10.0.0.0/24"
 
   diagnostics = {
-    destination   = "/subscription/xxxx-xxxx/.../resource_id"
-    eventhub_name = null
-    logs          = ["all"]
-    metrics       = ["all"]
+    destination = "/subscription/xxxx-xxxx/.../resource_id"
+    logs        = ["all"]
+    metrics     = ["all"]
   }
 
   public_ip_names = [
