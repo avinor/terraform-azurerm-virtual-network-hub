@@ -12,13 +12,13 @@ module "hub" {
 
   private_dns_zone = "cloud.mycorp.com"
 
-  additional_private_dns_zones = [
+  resolvable_private_dns_zones = [
     "example.postgres.database.azure.com",
     "example2.postgres.database.azure.com",
   ]
 
-  peering_assignment= [
-  "12345678-1234-1234-123456789012"
+  peering_assignment = [
+    "12345678-1234-1234-123456789012"
   ]
 
 }

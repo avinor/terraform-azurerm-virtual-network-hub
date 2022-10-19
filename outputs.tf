@@ -36,6 +36,11 @@ output "private_dns" {
   }
 }
 
+output "resolvable_private_dns_zones" {
+  description = "Resolvable private dns zones settings if configured. Id and name of private dns zone."
+  value       = { for k, v in azurerm_private_dns_zone_virtual_network_link.resolvable : k => azurerm_private_dns_zone.resolvable[k].id }
+}
+
 output "public_ip_prefix" {
   description = "Public ip prefix of firewall."
   value       = azurerm_public_ip_prefix.fw.ip_prefix

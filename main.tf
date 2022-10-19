@@ -528,20 +528,20 @@ resource "azurerm_private_dns_zone_virtual_network_link" "main" {
   tags                  = var.tags
 }
 
-resource "azurerm_private_dns_zone" "additional" {
-  for_each = { for a in var.additional_private_dns_zones : a => true }
+resource "azurerm_private_dns_zone" "resolvable" {
+  for_each = { for a in var.resolvable_private_dns_zones : a => true }
 
   name                = each.key
   resource_group_name = azurerm_resource_group.vnet.name
   tags                = var.tags
 }
 
-resource "azurerm_private_dns_zone_virtual_network_link" "additional" {
-  for_each = { for a in var.additional_private_dns_zones : a => true }
+resource "azurerm_private_dns_zone_virtual_network_link" "resolvable" {
+  for_each = { for a in var.resolvable_private_dns_zones : a => true }
 
   name                  = "${each.key}-link"
   resource_group_name   = azurerm_resource_group.vnet.name
-  private_dns_zone_name = azurerm_private_dns_zone.additional[each.key].name
+  private_dns_zone_name = azurerm_private_dns_zone.resolvable[each.key].name
   virtual_network_id    = azurerm_virtual_network.vnet.id
   registration_enabled  = false
   tags                  = var.tags
@@ -554,8 +554,6 @@ resource "azurerm_role_assignment" "dns" {
   role_definition_name = "Private DNS Zone Contributor"
   principal_id         = var.peering_assignment[count.index]
 }
-
-// TODO: Add role assognments doe addiotion private dns zones
 
 #
 # Firewall
@@ -746,12 +744,11 @@ resource "azurerm_firewall_network_rule_collection" "fw" {
   action              = each.value.rule.action
 
   rule {
-    name              = each.key
-    source_addresses  = each.value.rule.source_addresses
-    destination_ports = each.value.rule.destination_ports
-    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest
-    ]
-    protocols = each.value.rule.protocols
+    name                  = each.key
+    source_addresses      = each.value.rule.source_addresses
+    destination_ports     = each.value.rule.destination_ports
+    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
+    protocols             = each.value.rule.protocols
   }
 }
 
@@ -765,13 +762,12 @@ resource "azurerm_firewall_nat_rule_collection" "fw" {
   action              = each.value.rule.action
 
   rule {
-    name              = each.key
-    source_addresses  = each.value.rule.source_addresses
-    destination_ports = each.value.rule.destination_ports
-    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest
-    ]
-    protocols          = each.value.rule.protocols
-    translated_address = each.value.rule.translated_address
-    translated_port    = each.value.rule.translated_port
+    name                  = each.key
+    source_addresses      = each.value.rule.source_addresses
+    destination_ports     = each.value.rule.destination_ports
+    destination_addresses = [for dest in each.value.rule.destination_addresses : contains(var.public_ip_names, dest) ? azurerm_public_ip.fw[dest].ip_address : dest]
+    protocols             = each.value.rule.protocols
+    translated_address    = each.value.rule.translated_address
+    translated_port       = each.value.rule.translated_port
   }
 }

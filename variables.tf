@@ -144,8 +144,8 @@ variable "private_dns_zone" {
   default     = null
 }
 
-variable "additional_private_dns_zones" {
-  description = "List of additional private dns zones to create and associate with virtual network. None of these zones must be linked with registration enabled."
+variable "resolvable_private_dns_zones" {
+  description = "List of resolvable private dns zones to create and associate with virtual network. None of these zones must be linked with registration enabled and must only be used as resolvable."
   type        = list(string)
   default     = []
 }
