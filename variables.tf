@@ -24,7 +24,7 @@ variable "diagnostics" {
   description = "Diagnostic settings for those resources that support it. See README.md for details on configuration."
   type = object({
     destination   = string
-    eventhub_name = string
+    eventhub_name = optional(string)
     logs          = list(string)
     metrics       = list(string)
   })
@@ -140,8 +140,14 @@ variable "create_ddos_plan" {
 }
 
 variable "private_dns_zone" {
-  description = "Name of private dns zone to create and associate with virtual network."
+  description = "Name of private dns zone to create and associate with virtual network. This is the only zone that must be linked with registration enabled."
   default     = null
+}
+
+variable "resolvable_private_dns_zones" {
+  description = "List of resolvable private dns zones to create and associate with virtual network. None of these zones must be linked with registration enabled and must only be used as resolvable."
+  type        = list(string)
+  default     = []
 }
 
 variable "storage_account_resource_group_create" {

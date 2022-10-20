@@ -2,7 +2,7 @@ module github.com/avinor/terraform-azurerm-virtual-network-hub/test
 
 go 1.19
 
-require github.com/gruntwork-io/terratest v0.40.22
+require github.com/gruntwork-io/terratest v0.40.23
 
 require (
 	cloud.google.com/go v0.83.0 // indirect

@@ -57,10 +57,9 @@ module "hub" {
   address_space       = "10.0.0.0/24"
 
   diagnostics = {
-    destination   = "/subscription/xxxx-xxxx/.../resource_id"
-    eventhub_name = null
-    logs          = ["all"]
-    metrics       = [
+    destination = "/subscription/xxxx-xxxx/.../resource_id"
+    logs        = ["all"]
+    metrics     = [
       "all"
     ]
   }
@@ -140,7 +139,7 @@ module "hub" {
 Diagnostics settings can be sent to either storage account, event hub or Log Analytics workspace. The
 variable `diagnostics.destination` is the id of receiver, ie. storage account id, event namespace authorization rule id
 or log analytics resource id. Depending on what id is it will detect where to send. Unless using event namespace
-the `eventhub_name` is not required, just set to `null` for storage account and log analytics workspace.
+the `eventhub_name` is not required for storage account and log analytics workspace.
 
 Setting `all` in logs and metrics will send all possible diagnostics to destination. If not using `all` type name of
 categories to send.
@@ -215,4 +214,6 @@ all service principals that should have access to peer against hub network.
 
 To create a private dns zone for virtual network set the domain name for zone with variable `private_dns_zone`. This
 will create a private dns zone and link the virtual network hub to zone. It will also assign all principals that have
-peering access as contributors so spokes can be linked to same zone.
+peering access as contributors so spokes can be linked to same zone. For additional private dns zones, example for use
+with postgres flexible server, use `additional_private_dns_zones`. None of the additional zone must be linked with
+registration enabled.

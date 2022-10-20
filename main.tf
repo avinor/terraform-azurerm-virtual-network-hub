@@ -1,14 +1,9 @@
 terraform {
-  required_version = ">= 0.13"
+  required_version = ">= 1.3"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 3.23.0"
-    }
-    null = {
-      source  = "hashicorp/null"
-      version = "~> 3.1.1"
-
     }
     random = {
       source  = "hashicorp/random"
@@ -38,6 +33,7 @@ locals {
     destination_address_prefixes               = null
     destination_application_security_group_ids = null
   }
+
   default_mgmt_nsg_rules = [
     {
       name                       = "allow-load-balancer"
@@ -65,24 +61,31 @@ locals {
     for nsg in var.dmz_nsg_rules : merge(local.default_nsg_rule, nsg)
   ])
 
-  nat_rules = { for idx, rule in var.firewall_nat_rules : rule.name => {
-    idx : idx,
-    rule : rule,
-  } }
+  nat_rules = {
+    for idx, rule in var.firewall_nat_rules : rule.name => {
+      idx : idx,
+      rule : rule,
+    }
+  }
 
-  network_rules = { for idx, rule in var.firewall_network_rules : rule.name => {
-    idx : idx,
-    rule : rule,
-  } }
+  network_rules = {
+    for idx, rule in var.firewall_network_rules : rule.name => {
+      idx : idx,
+      rule : rule,
+    }
+  }
 
-  application_rules = { for idx, rule in var.firewall_application_rules : rule.name => {
-    idx : idx,
-    rule : rule,
-  } }
+  application_rules = {
+    for idx, rule in var.firewall_application_rules : rule.name => {
+      idx : idx,
+      rule : rule,
+    }
+  }
 
   public_ip_map = { for pip in var.public_ip_names : pip => true }
 
   diag_resource_list = var.diagnostics != null ? split("/", var.diagnostics.destination) : []
+
   parsed_diag = var.diagnostics != null ? {
     log_analytics_id   = contains(local.diag_resource_list, "Microsoft.OperationalInsights") ? var.diagnostics.destination : null
     storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
@@ -98,7 +101,6 @@ locals {
   }
 }
 
-data "azurerm_client_config" "current" {}
 
 #
 # Network watcher
@@ -106,20 +108,20 @@ data "azurerm_client_config" "current" {}
 #
 
 resource "azurerm_resource_group" "netwatcher" {
-  count    = var.netwatcher != null ? 1 : 0
+  count = var.netwatcher != null ? 1 : 0
+
   name     = "NetworkWatcherRG"
   location = var.netwatcher.resource_group_location
-
-  tags = var.tags
+  tags     = var.tags
 }
 
 resource "azurerm_network_watcher" "netwatcher" {
-  count               = var.netwatcher != null ? 1 : 0
+  count = var.netwatcher != null ? 1 : 0
+
   name                = "NetworkWatcher_${var.location}"
   location            = var.location
   resource_group_name = azurerm_resource_group.netwatcher.0.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 #
@@ -129,8 +131,7 @@ resource "azurerm_network_watcher" "netwatcher" {
 resource "azurerm_resource_group" "vnet" {
   name     = var.resource_group_name
   location = var.location
-
-  tags = var.tags
+  tags     = var.tags
 }
 
 #
@@ -138,12 +139,12 @@ resource "azurerm_resource_group" "vnet" {
 #
 
 resource "azurerm_network_ddos_protection_plan" "vnet" {
-  count               = var.create_ddos_plan ? 1 : 0
+  count = var.create_ddos_plan ? 1 : 0
+
   name                = "${var.name}-protection-plan"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 #
@@ -155,6 +156,7 @@ resource "azurerm_virtual_network" "vnet" {
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
   address_space       = [var.address_space]
+  tags                = var.tags
 
   dynamic "ddos_protection_plan" {
     for_each = var.create_ddos_plan ? [true] : []
@@ -164,12 +166,11 @@ resource "azurerm_virtual_network" "vnet" {
       enable = true
     }
   }
-
-  tags = var.tags
 }
 
 resource "azurerm_role_assignment" "peering" {
-  count                = length(var.peering_assignment)
+  count = length(var.peering_assignment)
+
   scope                = azurerm_virtual_network.vnet.id
   role_definition_name = "Network Contributor"
   principal_id         = var.peering_assignment[count.index]
@@ -180,7 +181,8 @@ data "azurerm_monitor_diagnostic_categories" "vnet" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "vnet" {
-  count                          = var.diagnostics != null ? 1 : 0
+  count = var.diagnostics != null ? 1 : 0
+
   name                           = "vnet-diag"
   target_resource_id             = azurerm_virtual_network.vnet.id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
@@ -226,9 +228,7 @@ resource "azurerm_subnet" "firewall" {
   resource_group_name  = azurerm_resource_group.vnet.name
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = [cidrsubnet(var.address_space, 2, 0)]
-
-  service_endpoints = var.service_endpoints
-
+  service_endpoints    = var.service_endpoints
 }
 
 resource "azurerm_subnet" "gateway" {
@@ -272,12 +272,12 @@ module "storage" {
   source  = "avinor/storage-account/azurerm"
   version = "3.5.2"
 
-  name                  = var.name
-  resource_group_name   = azurerm_resource_group.vnet.name
-  resource_group_create = var.storage_account_resource_group_create
-  location              = azurerm_resource_group.vnet.location
-
+  name                              = var.name
+  resource_group_name               = azurerm_resource_group.vnet.name
+  resource_group_create             = var.storage_account_resource_group_create
+  location                          = azurerm_resource_group.vnet.location
   enable_advanced_threat_protection = var.enable_advanced_threat_protection
+  tags                              = var.tags
 
   # TODO Not yet supported to use service endpoints together with flow logs. Not a trusted Microsoft service !!
   # FIXME It should be resolved now 16.04.2021 https://feedback.azure.com/forums/217313/suggestions/33684529
@@ -287,8 +287,6 @@ module "storage" {
   #   ip_rules                   = ["127.0.0.1"]
   #   virtual_network_subnet_ids = ["${azurerm_subnet.firewall.id}"]
   # }
-
-  tags = var.tags
 }
 
 #
@@ -299,8 +297,7 @@ resource "azurerm_route_table" "out" {
   name                = "${var.name}-outbound-rt"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_route" "fw" {
@@ -330,21 +327,20 @@ resource "azurerm_network_security_group" "mgmt" {
   name                = "subnet-mgmt-nsg"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
-  resource_group_name  = azurerm_resource_group.netwatcher[0].name
-  name                 = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
-
+  network_watcher_name      = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name       = azurerm_resource_group.netwatcher[0].name
+  name                      = "${azurerm_resource_group.vnet.name}subnet-mgmt-nsg"
   network_security_group_id = azurerm_network_security_group.mgmt.id
   storage_account_id        = module.storage.id
   enabled                   = true
   version                   = 2
+  tags                      = var.tags
 
   traffic_analytics {
     enabled               = true
@@ -357,16 +353,14 @@ resource "azurerm_network_watcher_flow_log" "mgmt_logs" {
     days    = 0
     enabled = false
   }
-
-  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "mgmt" {
-  count                       = length(local.merged_mgmt_nsg_rules)
-  resource_group_name         = azurerm_resource_group.vnet.name
-  network_security_group_name = azurerm_network_security_group.mgmt.name
-  priority                    = 100 + 100 * count.index
+  count = length(local.merged_mgmt_nsg_rules)
 
+  resource_group_name                        = azurerm_resource_group.vnet.name
+  network_security_group_name                = azurerm_network_security_group.mgmt.name
+  priority                                   = 100 + 100 * count.index
   name                                       = local.merged_mgmt_nsg_rules[count.index].name
   direction                                  = local.merged_mgmt_nsg_rules[count.index].direction
   access                                     = local.merged_mgmt_nsg_rules[count.index].access
@@ -389,7 +383,8 @@ data "azurerm_monitor_diagnostic_categories" "mgmt" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "mgmt" {
-  count                          = var.diagnostics != null ? 1 : 0
+  count = var.diagnostics != null ? 1 : 0
+
   name                           = "mgmt-nsg-diag"
   target_resource_id             = azurerm_network_security_group.mgmt.id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
@@ -423,21 +418,20 @@ resource "azurerm_network_security_group" "dmz" {
   name                = "subnet-dmz-nsg"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_network_watcher_flow_log" "dmz_logs" {
   count = var.netwatcher != null ? 1 : 0
 
-  network_watcher_name = azurerm_network_watcher.netwatcher[0].name
-  resource_group_name  = azurerm_resource_group.netwatcher[0].name
-  name                 = "${azurerm_resource_group.vnet.name}subnet-dmz-nsg"
-
+  name                      = "${azurerm_resource_group.vnet.name}subnet-dmz-nsg"
+  network_watcher_name      = azurerm_network_watcher.netwatcher[0].name
+  resource_group_name       = azurerm_resource_group.netwatcher[0].name
   network_security_group_id = azurerm_network_security_group.dmz.id
   storage_account_id        = module.storage.id
   enabled                   = true
   version                   = 2
+  tags                      = var.tags
 
   traffic_analytics {
     enabled               = true
@@ -450,16 +444,14 @@ resource "azurerm_network_watcher_flow_log" "dmz_logs" {
     days    = 0
     enabled = false
   }
-
-  tags = var.tags
 }
 
 resource "azurerm_network_security_rule" "dmz" {
-  count                       = length(local.merged_dmz_nsg_rules)
-  resource_group_name         = azurerm_resource_group.vnet.name
-  network_security_group_name = azurerm_network_security_group.dmz.name
-  priority                    = 100 + 100 * count.index
+  count = length(local.merged_dmz_nsg_rules)
 
+  resource_group_name                        = azurerm_resource_group.vnet.name
+  network_security_group_name                = azurerm_network_security_group.dmz.name
+  priority                                   = 100 + 100 * count.index
   name                                       = local.merged_dmz_nsg_rules[count.index].name
   direction                                  = local.merged_dmz_nsg_rules[count.index].direction
   access                                     = local.merged_dmz_nsg_rules[count.index].access
@@ -482,7 +474,8 @@ data "azurerm_monitor_diagnostic_categories" "dmz" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "dmz" {
-  count                          = var.diagnostics != null ? 1 : 0
+  count = var.diagnostics != null ? 1 : 0
+
   name                           = "dmz-nsg-diag"
   target_resource_id             = azurerm_network_security_group.dmz.id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
@@ -517,26 +510,46 @@ resource "azurerm_subnet_network_security_group_association" "dmz" {
 #
 
 resource "azurerm_private_dns_zone" "main" {
-  count               = var.private_dns_zone != null ? 1 : 0
+  count = var.private_dns_zone != null ? 1 : 0
+
   name                = var.private_dns_zone
   resource_group_name = azurerm_resource_group.vnet.name
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "main" {
-  count                 = var.private_dns_zone != null ? 1 : 0
+  count = var.private_dns_zone != null ? 1 : 0
+
   name                  = "${var.name}-link"
   resource_group_name   = azurerm_resource_group.vnet.name
   private_dns_zone_name = azurerm_private_dns_zone.main[0].name
   virtual_network_id    = azurerm_virtual_network.vnet.id
   registration_enabled  = true
+  tags                  = var.tags
+}
 
-  tags = var.tags
+resource "azurerm_private_dns_zone" "resolvable" {
+  for_each = { for a in var.resolvable_private_dns_zones : a => true }
+
+  name                = each.key
+  resource_group_name = azurerm_resource_group.vnet.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "resolvable" {
+  for_each = { for a in var.resolvable_private_dns_zones : a => true }
+
+  name                  = "${var.name}-link"
+  resource_group_name   = azurerm_resource_group.vnet.name
+  private_dns_zone_name = azurerm_private_dns_zone.resolvable[each.key].name
+  virtual_network_id    = azurerm_virtual_network.vnet.id
+  registration_enabled  = false
+  tags                  = var.tags
 }
 
 resource "azurerm_role_assignment" "dns" {
-  count                = var.private_dns_zone != null ? length(var.peering_assignment) : 0
+  count = var.private_dns_zone != null ? length(var.peering_assignment) : 0
+
   scope                = azurerm_private_dns_zone.main[0].id
   role_definition_name = "Private DNS Zone Contributor"
   principal_id         = var.peering_assignment[count.index]
@@ -550,11 +563,9 @@ resource "azurerm_public_ip_prefix" "fw" {
   name                = "${var.name}-pip-prefix"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
-  prefix_length = var.public_ip_prefix_length
-  zones         = var.firewall_zones
-
-  tags = var.tags
+  prefix_length       = var.public_ip_prefix_length
+  zones               = var.firewall_zones
+  tags                = var.tags
 }
 
 resource "random_string" "dns" {
@@ -571,14 +582,12 @@ resource "azurerm_public_ip" "fw" {
   name                = "${var.name}-fw-${each.key}-pip"
   location            = azurerm_resource_group.vnet.location
   resource_group_name = azurerm_resource_group.vnet.name
-
   allocation_method   = "Static"
   sku                 = "Standard"
   domain_name_label   = format("%s%sfw%s", lower(replace(var.name, "/[[:^alnum:]]/", "")), lower(replace(each.key, "/[[:^alnum:]]/", "")), random_string.dns[each.key].result)
   public_ip_prefix_id = azurerm_public_ip_prefix.fw.id
   zones               = var.firewall_zones
-
-  tags = var.tags
+  tags                = var.tags
 }
 
 data "azurerm_monitor_diagnostic_categories" "fw_pip" {
@@ -637,6 +646,7 @@ resource "azurerm_firewall" "fw" {
   zones               = var.firewall_zones
   sku_name            = "AZFW_VNet"
   sku_tier            = "Standard"
+  tags                = var.tags
 
   dynamic "ip_configuration" {
     for_each = local.public_ip_map
@@ -654,8 +664,6 @@ resource "azurerm_firewall" "fw" {
       ip_configuration,
     ]
   }
-
-  tags = var.tags
 }
 
 data "azurerm_monitor_diagnostic_categories" "fw" {
@@ -663,7 +671,8 @@ data "azurerm_monitor_diagnostic_categories" "fw" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "fw" {
-  count                          = var.diagnostics != null ? 1 : 0
+  count = var.diagnostics != null ? 1 : 0
+
   name                           = "fw-diag"
   target_resource_id             = azurerm_firewall.fw.id
   log_analytics_workspace_id     = local.parsed_diag.log_analytics_id
@@ -751,6 +760,7 @@ resource "azurerm_firewall_nat_rule_collection" "fw" {
   resource_group_name = azurerm_resource_group.vnet.name
   priority            = 100 * (each.value.idx + 1)
   action              = each.value.rule.action
+
   rule {
     name                  = each.key
     source_addresses      = each.value.rule.source_addresses
