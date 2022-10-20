@@ -39,7 +39,7 @@ output "private_dns" {
 output "resolvable_private_dns_zones" {
   description = "Map of resolvable private dns zones settings if configured. The key is the private zone name where dots (.) is replaced with underscores (_). Value of the maps is id and name of private dns zone."
   value = {
-    for k, v in azurerm_private_dns_zone.resolvable : replace(k, "\\.", "_") => {
+    for k, v in azurerm_private_dns_zone.resolvable : replace(k, ".", "_") => {
       id   = azurerm_private_dns_zone.resolvable[k].id
       name = azurerm_private_dns_zone.resolvable[k].name
     }
