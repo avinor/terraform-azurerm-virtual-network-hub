@@ -140,7 +140,7 @@ variable "create_ddos_plan" {
 }
 
 variable "private_dns_zone" {
-  description = "Name of private dns zone to create and associate with virtual network. This is the only zone that most be linked with registration enabled."
+  description = "Name of private dns zone to create and associate with virtual network. This is the only zone that must be linked with registration enabled."
   default     = null
 }
 
