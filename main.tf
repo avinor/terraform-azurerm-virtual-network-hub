@@ -86,6 +86,19 @@ locals {
 
   diag_resource_list = var.diagnostics != null ? split("/", var.diagnostics.destination) : []
 
+  resolvable_dns_peering = length(var.peering_assignment) > 0 ? flatten([
+    for dns in var.resolvable_private_dns_zones : [
+      for principal in var.peering_assignment : {
+        dns : dns,
+        principal : principal,
+      }
+    ]
+  ]) : []
+
+  resolvable_dns_peering_map = {
+    for peer in local.resolvable_dns_peering : "${peer.dns}:${peer.principal}" => peer
+  }
+
   parsed_diag = var.diagnostics != null ? {
     log_analytics_id   = contains(local.diag_resource_list, "Microsoft.OperationalInsights") ? var.diagnostics.destination : null
     storage_account_id = contains(local.diag_resource_list, "Microsoft.Storage") ? var.diagnostics.destination : null
@@ -534,6 +547,14 @@ resource "azurerm_private_dns_zone" "resolvable" {
   name                = each.key
   resource_group_name = azurerm_resource_group.vnet.name
   tags                = var.tags
+}
+
+resource "azurerm_role_assignment" "resolvable" {
+  for_each = local.resolvable_dns_peering_map
+
+  scope                = azurerm_private_dns_zone.resolvable[each.value.dns].id
+  role_definition_name = "Private DNS Zone Contributor"
+  principal_id         = each.value.principal
 }
 
 resource "azurerm_private_dns_zone_virtual_network_link" "resolvable" {
