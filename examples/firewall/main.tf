@@ -7,7 +7,7 @@ module "hub" {
   address_space       = "10.0.0.0/24"
 
   diagnostics = {
-    destination = "/subscription/xxxx-xxxx/.../resource_id"
+    destination   = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/my-rg/providers/Microsoft.Storage/storageAccounts/mysa"
     logs        = ["all"]
     metrics     = ["all"]
   }
