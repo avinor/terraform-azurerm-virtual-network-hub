@@ -3,17 +3,18 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.72.0"
+      version = "~> 3.95.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.4.3"
+      version = "~> 3.6.0"
     }
   }
 }
 
 provider "azurerm" {
   features {}
+  skip_provider_registration = true
 }
 
 locals {
@@ -206,16 +207,13 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
   # For each available log category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
-  dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.vnet.log_category_types
+  dynamic "enabled_log" {
+    for_each = {
+      for k, v in data.azurerm_monitor_diagnostic_categories.vnet.log_category_types : k => v
+      if contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, v)
+    }
     content {
-      category = log.value
-      enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
+      category = enabled_log.value
     }
   }
 
@@ -227,11 +225,6 @@ resource "azurerm_monitor_diagnostic_setting" "vnet" {
     content {
       category = metric.value
       enabled  = contains(local.parsed_diag.metric, "all") || contains(local.parsed_diag.metric, metric.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
     }
   }
 }
@@ -283,7 +276,7 @@ resource "azurerm_subnet" "dmz" {
 
 module "storage" {
   source  = "avinor/storage-account/azurerm"
-  version = "3.5.4"
+  version = "4.0.0"
 
   name                              = var.name
   resource_group_name               = azurerm_resource_group.vnet.name
@@ -408,16 +401,13 @@ resource "azurerm_monitor_diagnostic_setting" "mgmt" {
   # For each available metric category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
-  dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.mgmt.log_category_types
+  dynamic "enabled_log" {
+    for_each = {
+      for k, v in data.azurerm_monitor_diagnostic_categories.mgmt.log_category_types : k => v
+      if contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, v)
+    }
     content {
-      category = log.value
-      enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
+      category = enabled_log.value
     }
   }
 }
@@ -499,16 +489,13 @@ resource "azurerm_monitor_diagnostic_setting" "dmz" {
   # For each available metric category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
-  dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.dmz.log_category_types
+  dynamic "enabled_log" {
+    for_each = {
+      for k, v in data.azurerm_monitor_diagnostic_categories.dmz.log_category_types : k => v
+      if contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, v)
+    }
     content {
-      category = log.value
-      enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
+      category = enabled_log.value
     }
   }
 }
@@ -630,18 +617,16 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
   # For each available metric category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
-  dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.fw_pip[each.key].logs
+  dynamic "enabled_log" {
+    for_each = {
+      for k, v in data.azurerm_monitor_diagnostic_categories.fw_pip[each.key].log_category_types : k => v
+      if contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, v)
+    }
     content {
-      category = log.value
-      enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
+      category = enabled_log.value
     }
   }
+
   # For each available metric category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
@@ -650,11 +635,6 @@ resource "azurerm_monitor_diagnostic_setting" "fw_pip" {
     content {
       category = metric.value
       enabled  = contains(local.parsed_diag.metric, "all") || contains(local.parsed_diag.metric, metric.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
     }
   }
 }
@@ -704,16 +684,13 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
   # For each available metric category, check if it should be enabled and set enabled = true if it should.
   # All other categories are created with enabled = false to prevent TF from showing changes happening with each plan/apply.
   # Ref: https://github.com/terraform-providers/terraform-provider-azurerm/issues/7235
-  dynamic "log" {
-    for_each = data.azurerm_monitor_diagnostic_categories.fw.log_category_types
+  dynamic "enabled_log" {
+    for_each = {
+      for k, v in data.azurerm_monitor_diagnostic_categories.fw.log_category_types : k => v
+      if contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, v)
+    }
     content {
-      category = log.value
-      enabled  = contains(local.parsed_diag.log, "all") || contains(local.parsed_diag.log, log.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
+      category = enabled_log.value
     }
   }
 
@@ -725,11 +702,6 @@ resource "azurerm_monitor_diagnostic_setting" "fw" {
     content {
       category = metric.value
       enabled  = contains(local.parsed_diag.metric, "all") || contains(local.parsed_diag.metric, metric.value)
-
-      retention_policy {
-        days    = 0
-        enabled = false
-      }
     }
   }
 }
